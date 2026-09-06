@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#050508">
-<title>털두꺼비의 묵 사냥: 광란 모드</title>
+<title>털두꺼비의 묵 사냥: 틸트 에디션</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
   html, body {
@@ -19,7 +19,7 @@
     background:#0a0e17; display:flex; flex-direction:column; overflow:hidden;
     box-shadow:0 0 50px rgba(0,0,0,0.9);
   }
-  canvas { flex:1; width:100%; display:block; touch-action:none; }
+  canvas { flex:1; width:100%; display:block; touch-action:none; cursor:crosshair; }
 
   /* 상단 HUD */
   #hud {
@@ -54,49 +54,14 @@
   #fbc { width:100%; height:7px; background:rgba(30,41,59,0.8); border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.08); }
   #fb { width:0%; height:100%; background:linear-gradient(90deg,#38bdf8,#f59e0b,#ef4444); transition:width 0.1s ease-out; }
 
-  /* 한 손 조작용 가상 조이스틱 영역 */
-  #joystickZone {
-    position:absolute; bottom:20px; left:20px;
-    width:130px; height:130px;
-    border-radius:50%;
-    background:rgba(30,41,59,0.35);
-    backdrop-filter:blur(6px);
-    border:2px dashed rgba(255,255,255,0.25);
-    display:flex; justify-content:center; align-items:center;
-    pointer-events:auto;
-    touch-action:none;
-    z-index:25;
+  /* 기울기 안내 인디케이터 (화면 하단 살짝 표시) */
+  #tiltGuide {
+    position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    font-size:11px; font-weight:700; color:rgba(148,163,184,0.6);
+    pointer-events:none; z-index:15; display:flex; align-items:center; gap:6px;
   }
-  #joystickKnob {
-    width:56px; height:56px;
-    border-radius:50%;
-    background:radial-gradient(circle at 35% 35%, #38bdf8, #0284c7);
-    box-shadow:0 4px 16px rgba(56,189,248,0.5);
-    border:2px solid #ffffff;
-    pointer-events:none;
-    transform:translate(0px, 0px);
-    transition:transform 0.04s ease-out;
-  }
-  #joystickLabel {
-    position:absolute; bottom:-18px; font-size:10px; font-weight:700; color:#94a3b8; pointer-events:none;
-  }
-
-  /* 한 손 엄지 보조 액션 버튼 (점프/대시) */
-  #actionGroup {
-    position:absolute; bottom:24px; right:20px;
-    display:flex; gap:12px; pointer-events:auto; z-index:25;
-  }
-  .act-btn {
-    width:64px; height:64px; border-radius:50%;
-    background:rgba(30,41,59,0.85); backdrop-filter:blur(8px);
-    border:2px solid rgba(255,255,255,0.2);
-    box-shadow:0 6px 18px rgba(0,0,0,0.5);
-    display:flex; flex-direction:column; justify-content:center; align-items:center;
-    color:#fff; font-size:20px; font-weight:900;
-    touch-action:none; transition:transform 0.05s, background 0.05s;
-  }
-  .act-btn:active, .act-btn.pressed { transform:scale(0.88); background:rgba(56,189,248,0.5); border-color:#38bdf8; }
-  .act-lbl { font-size:9px; color:#94a3b8; margin-top:-2px; }
+  .tilt-arrow { animation:tiltSway 1.5s infinite ease-in-out; }
+  @keyframes tiltSway { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-15deg)} 75%{transform:rotate(15deg)} }
 
   /* 모달 */
   .mo {
@@ -105,7 +70,7 @@
     padding:24px; text-align:center; z-index:50;
   }
   .hidden { display:none!important; }
-  h1 { font-size:25px; font-weight:900; color:#4ade80; margin-bottom:4px; text-shadow:0 0 16px rgba(74,222,128,0.4); }
+  h1 { font-size:26px; font-weight:900; color:#4ade80; margin-bottom:4px; text-shadow:0 0 16px rgba(74,222,128,0.4); }
   .sub { font-size:13px; color:#94a3b8; margin-bottom:14px; }
   .gbox {
     background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
@@ -162,32 +127,23 @@
 
   <canvas id="c"></canvas>
 
-  <!-- 한 손 조작 조이스틱 -->
-  <div id="joystickZone">
-    <div id="joystickKnob"></div>
-    <div id="joystickLabel">이동 / 위로 밀면 점프</div>
-  </div>
-
-  <!-- 보조 엄지 터치 버튼 -->
-  <div id="actionGroup">
-    <div class="act-btn" id="btnDash">💨<span class="act-lbl">대시</span></div>
-    <div class="act-btn" id="btnJump">▲<span class="act-lbl">점프</span></div>
+  <div id="tiltGuide">
+    <span class="tilt-arrow">📱</span> 스마트폰을 좌우로 기울여 이동하세요
   </div>
 
   <!-- 인트로 모달 -->
   <div class="mo" id="titleMo">
-    <div style="font-size:50px;margin-bottom:8px;animation:modeBlink 1.2s infinite alternate;">🐸🔥</div>
+    <div style="font-size:52px;margin-bottom:8px;animation:modeBlink 1.2s infinite alternate;">🐸📱</div>
     <h1>털두꺼비의 묵 사냥</h1>
-    <div class="sub">광란 모드 에디션 (한 손 조이스틱 플레이)</div>
+    <div class="sub">틸트(기울이기) & 탭 조작 에디션</div>
     <div class="gbox">
-      <div class="gi"><b>🕹️ 조이스틱</b>: 좌우 이동 & <b>위로 밀면 점프</b> (한 손 완벽 조작!)</div>
-      <div class="gi"><b>👆 화면 터치</b>: 혓바닥 초고속 발사 (자동 조준)</div>
-      <div class="gi"><b>⚡ 일반 모드</b>: 묵을 먹어 광란 게이지를 100%까지 채워라!</div>
-      <div class="gi"><b>🔥 광란 모드 (BERSERK)</b>: <b>5갈래 혓바닥</b>이 화면을 쓸어담음! 단, <b>폭풍 가시돌과 낙뢰를 무조건 칼회피</b>해야 살아남는다!</div>
-      <div class="gi"><b>⚡ 저스트 닷지</b>: 가시돌을 아슬아슬 스치면 순간 불릿타임 + 게이지 급충!</div>
-      <div class="gi"><b>❄️ 얼음 묵</b>: 위기 탈출용 슬로우모션 (희귀 스폰)</div>
+      <div class="gi"><b>📱 폰 기울이기 (Tilt)</b>: 좌우로 폰을 기울여 두꺼비를 날렵하게 조종! (조이스틱/버튼 완전 삭제)</div>
+      <div class="gi"><b>🎯 묵 터치하기</b>: 묵이나 파리를 손가락으로 콕 찌르면 **그 자리로 혓바닥이 번개처럼 스냅 발사**!</div>
+      <div class="gi"><b>🔥 광란 모드</b>: 게이지 100% 시 <b>5갈래 폭풍 혓바닥</b> 발동! 쏟아지는 가시돌은 폰을 기울여 칼회피!</div>
+      <div class="gi"><b>⚡ 저스트 닷지</b>: 가시돌을 아슬아슬하게 스쳐 지나가면 시간 왜곡 불릿타임 + 게이지 급충!</div>
+      <div class="gi"><b>💻 PC 환경</b>: 마우스 클릭 사격 & `A`/`D` 또는 `←`/`→` 이동 지원</div>
     </div>
-    <button class="pbtn" id="startBtn">광란의 묵 사냥 시작</button>
+    <button class="pbtn" id="startBtn">기울이기 권한 허용 & 시작</button>
   </div>
 
   <!-- 게임오버 모달 -->
@@ -237,32 +193,17 @@ function sfx(tp) {
   if(!sOn) return;
   try {
     const a=getAC(), t=a.currentTime;
-    if(tp==='jump') {
-      const o=a.createOscillator(), g=a.createGain();
-      o.connect(g); g.connect(a.destination);
-      o.type='triangle'; o.frequency.setValueAtTime(150,t);
-      o.frequency.exponentialRampToValueAtTime(560,t+0.1);
-      g.gain.setValueAtTime(0.16,t); g.gain.linearRampToValueAtTime(0.01,t+0.1);
-      o.start(t); o.stop(t+0.1);
-    } else if(tp==='dash') {
-      const o=a.createOscillator(), g=a.createGain();
-      o.connect(g); g.connect(a.destination);
-      o.type='sawtooth'; o.frequency.setValueAtTime(360,t);
-      o.frequency.linearRampToValueAtTime(80,t+0.12);
-      g.gain.setValueAtTime(0.2,t); g.gain.linearRampToValueAtTime(0.01,t+0.12);
-      o.start(t); o.stop(t+0.12);
-      if(navigator.vibrate) navigator.vibrate(30);
-    } else if(tp==='tongue') {
+    if(tp==='tongue') {
       const o=a.createOscillator(), g=a.createGain();
       o.connect(g); g.connect(a.destination);
       o.type='sine'; o.frequency.setValueAtTime(950,t);
       o.frequency.exponentialRampToValueAtTime(220,t+0.06);
-      g.gain.setValueAtTime(0.18,t); g.gain.linearRampToValueAtTime(0.01,t+0.06);
+      g.gain.setValueAtTime(0.2,t); g.gain.linearRampToValueAtTime(0.01,t+0.06);
       o.start(t); o.stop(t+0.06);
     } else if(tp==='crunch') {
       const o1=a.createOscillator(), g1=a.createGain();
       o1.connect(g1); g1.connect(a.destination);
-      o1.type='triangle'; o1.frequency.setValueAtTime(190,t);
+      o1.type='triangle'; o1.frequency.setValueAtTime(200,t);
       o1.frequency.exponentialRampToValueAtTime(45,t+0.12);
       g1.gain.setValueAtTime(0.3,t); g1.gain.linearRampToValueAtTime(0.01,t+0.12);
       o1.start(t); o1.stop(t+0.12);
@@ -281,7 +222,7 @@ function sfx(tp) {
       o.frequency.exponentialRampToValueAtTime(950,t+0.25);
       g.gain.setValueAtTime(0.25,t); g.gain.linearRampToValueAtTime(0.01,t+0.25);
       o.start(t); o.stop(t+0.25);
-      if(navigator.vibrate) navigator.vibrate([40, 30, 60]);
+      if(navigator.vibrate) navigator.vibrate([35, 25, 50]);
     } else if(tp==='frenzy_start') {
       const o=a.createOscillator(), g=a.createGain();
       o.connect(g); g.connect(a.destination);
@@ -340,7 +281,7 @@ sbEl.addEventListener('click',()=>{
 });
 
 /* ================================================================
-   2. 게임 상태 (일반 모드 vs 광란 모드)
+   2. 게임 상태 & 두꺼비 모델
    ================================================================ */
 let state='title';
 let score=0, lives=3, combo=1, comboTimer=0, gameTime=0;
@@ -352,160 +293,126 @@ let feverM=0;        // 0 ~ 100 광란 게이지
 let frenzyT=0;       // 🔥 광란 모드 지속 타이머 (9초)
 let laser=null, laserClock=0;
 
+// 두꺼비 (점프 제거: 바닥 밀착 & 좌우 민첩 이동)
 const T={
-  x:180,y:480,w:50,h:38,vx:0,vy:0,gr:true,fd:1,wig:0,
-  dashT:0, dashCD:0, ghosts:[],
+  x:180, y:480, w:52, h:40,
+  vx:0, targetVx:0, fd:1, wig:0,
   tg:[
-    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:380,ret:false},
-    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:380,ret:false},
-    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:380,ret:false},
-    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:380,ret:false},
-    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:380,ret:false}
+    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:420,ret:false},
+    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:420,ret:false},
+    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:420,ret:false},
+    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:420,ret:false},
+    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:420,ret:false}
   ]
 };
 
 let items=[], parts=[], floats=[], shockwaves=[], spawnClk=0;
 
 /* ================================================================
-   3. 한 손 조작 시스템: 가상 조이스틱 + 화면 탭
+   3. 📱 틸트(기울이기) 센서 조향 & 스마트 터치 사격
    ================================================================ */
-let joystickActive=false;
-let joystickStart={x:0, y:0};
-let joystickVector={x:0, y:0};
-const joystickZone=document.getElementById('joystickZone');
-const joystickKnob=document.getElementById('joystickKnob');
+let tiltGamma = 0; // 좌우 기울기 각도
+let tiltActive = false;
 
-function handleJoystickStart(cx, cy) {
-  joystickActive=true;
-  const rect=joystickZone.getBoundingClientRect();
-  joystickStart={x:rect.left+rect.width/2, y:rect.top+rect.height/2};
-  handleJoystickMove(cx, cy);
-}
-
-function handleJoystickMove(cx, cy) {
-  if(!joystickActive) return;
-  const dx=cx-joystickStart.x;
-  const dy=cy-joystickStart.y;
-  const maxR=42;
-  const dist=Math.hypot(dx, dy);
-  const clampedDist=Math.min(dist, maxR);
-  const angle=Math.atan2(dy, dx);
-
-  const kx=Math.cos(angle)*clampedDist;
-  const ky=Math.sin(angle)*clampedDist;
-  joystickKnob.style.transform=`translate(${kx}px, ${ky}px)`;
-
-  joystickVector.x=kx/maxR;
-  joystickVector.y=ky/maxR;
-
-  // 조이스틱을 위로 밀면 점프!
-  if(joystickVector.y < -0.65) {
-    doJump();
+function onOrientation(e) {
+  if (e.gamma !== null && e.gamma !== undefined) {
+    tiltActive = true;
+    tiltGamma = e.gamma; // 좌: 음수, 우: 양수 (degrees)
   }
 }
 
-function handleJoystickEnd() {
-  joystickActive=false;
-  joystickVector={x:0, y:0};
-  joystickKnob.style.transform=`translate(0px, 0px)`;
-}
-
-joystickZone.addEventListener('touchstart',e=>{
-  e.preventDefault();
-  const t=e.touches[0];
-  handleJoystickStart(t.clientX, t.clientY);
-},{passive:false});
-
-joystickZone.addEventListener('touchmove',e=>{
-  e.preventDefault();
-  const t=e.touches[0];
-  handleJoystickMove(t.clientX, t.clientY);
-},{passive:false});
-
-joystickZone.addEventListener('touchend',e=>{
-  e.preventDefault();
-  handleJoystickEnd();
-},{passive:false});
-joystickZone.addEventListener('touchcancel',handleJoystickEnd);
-
-document.getElementById('btnJump').addEventListener('touchstart',e=>{ e.preventDefault(); doJump(); },{passive:false});
-document.getElementById('btnJump').addEventListener('mousedown',doJump);
-document.getElementById('btnDash').addEventListener('touchstart',e=>{ e.preventDefault(); doDash(T.fd); },{passive:false});
-document.getElementById('btnDash').addEventListener('mousedown',()=>doDash(T.fd));
-
-function doJump() {
-  if(T.gr) {
-    T.vy=-580; T.gr=false; sfx('jump');
-    addParts(T.x+T.w/2,T.y+T.h,'#10b981',8);
+function requestTiltPermission() {
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
+          window.addEventListener('deviceorientation', onOrientation, true);
+        }
+      })
+      .catch(console.error);
+  } else {
+    window.addEventListener('deviceorientation', onOrientation, true);
   }
 }
-function doDash(dir) {
-  if(T.dashCD>0) return;
-  T.dashT=0.30;
-  T.dashCD=0.50;
-  T.vx=dir*950;
-  sfx('dash');
-}
 
-function findNearestItem(tx,ty) {
-  let best=null, bestD=Infinity;
-  items.forEach(it=>{
-    if(it.type==='spike' && frenzyT<=0) return;
-    const d=Math.hypot(it.x-tx,it.y-ty);
-    if(d<bestD && d<280) { bestD=d; best=it; }
+// 스마트 탭 사격: 탭한 위치 주변의 묵/아이템으로 자석 스냅!
+function findBestTapItem(tx, ty) {
+  let best = null, bestDist = Infinity;
+  items.forEach(it => {
+    if (it.type === 'spike' && frenzyT <= 0) return;
+    const d = Math.hypot(it.x - tx, it.y - ty);
+    // 터치 지점 75px 이내에 묵이 있으면 해당 묵으로 정확히 유도 스냅
+    if (d < 75 && d < bestDist) {
+      bestDist = d;
+      best = it;
+    }
   });
   return best;
 }
 
-function fireTongues(tx,ty) {
-  const near=findNearestItem(tx,ty);
-  if(near){ tx=near.x; ty=near.y; }
+function shootTongueAt(tx, ty) {
+  // 터치한 위치에 묵이 있으면 위치 스냅
+  const targetItem = findBestTapItem(tx, ty);
+  let aimX = targetItem ? targetItem.x : tx;
+  let aimY = targetItem ? targetItem.y : ty;
 
-  const count = frenzyT>0 ? 5 : 1; // 광란 모드 시 5갈래 기관총 혓바닥!
-  for(let i=0;i<count;i++) {
-    const t=T.tg[i];
-    if(t.a) continue;
-    t.a=true;
-    let ttx=tx, tty=ty;
-    if(count===5) {
-      const offsets=[-110, -55, 0, 55, 110];
+  const count = frenzyT > 0 ? 5 : 1;
+  for (let i = 0; i < count; i++) {
+    const t = T.tg[i];
+    if (t.a) continue;
+    t.a = true;
+    let ttx = aimX, tty = aimY;
+    if (count === 5) {
+      const offsets = [-120, -60, 0, 60, 120];
       ttx += offsets[i];
     }
-    t.tx=ttx; t.ty=tty;
-    t.l=0; t.ret=false;
+    t.tx = ttx; t.ty = tty;
+    t.l = 0; t.ret = false;
   }
   sfx('tongue');
 }
 
-cvs.addEventListener('touchstart',e=>{
-  if(state!=='play') return;
-  const t=e.touches[0];
-  const rect=cvs.getBoundingClientRect();
-  const tx=t.clientX-rect.left;
-  const ty=t.clientY-rect.top;
-  if(ty < H-130 || (tx > 140 && tx < W-130)) {
-    fireTongues(tx, ty);
+// 캔버스 터치 / 클릭 이벤트
+cvs.addEventListener('touchstart', e => {
+  if (state !== 'play') return;
+  for (let i = 0; i < e.touches.length; i++) {
+    const t = e.touches[i];
+    const rect = cvs.getBoundingClientRect();
+    const tx = t.clientX - rect.left;
+    const ty = t.clientY - rect.top;
+    shootTongueAt(tx, ty);
   }
-},{passive:true});
+}, { passive: true });
 
-const keyInp={l:false, r:false};
-window.addEventListener('keydown',e=>{
-  if(['ArrowLeft','a','A'].includes(e.key)) keyInp.l=true;
-  if(['ArrowRight','d','D'].includes(e.key)) keyInp.r=true;
-  if(['ArrowUp','w','W'].includes(e.key)) doJump();
-  if(['Shift','j','J'].includes(e.key)) doDash(T.fd);
-  if(e.key===' '||e.key==='Enter'||e.key==='ArrowDown') {
-    e.preventDefault();
-    let bx=T.x+T.w/2, by=T.y-220;
-    const near=findNearestItem(T.x+T.w/2, T.y);
-    if(near) { bx=near.x; by=near.y; }
-    fireTongues(bx,by);
+cvs.addEventListener('mousedown', e => {
+  if (state !== 'play') return;
+  const rect = cvs.getBoundingClientRect();
+  shootTongueAt(e.clientX - rect.left, e.clientY - rect.top);
+});
+
+// PC 키보드 & 터치 드래그 보조 조향
+const keyInp = { l: false, r: false };
+window.addEventListener('keydown', e => {
+  if (['ArrowLeft', 'a', 'A'].includes(e.key)) keyInp.l = true;
+  if (['ArrowRight', 'd', 'D'].includes(e.key)) keyInp.r = true;
+});
+window.addEventListener('keyup', e => {
+  if (['ArrowLeft', 'a', 'A'].includes(e.key)) keyInp.l = false;
+  if (['ArrowRight', 'd', 'D'].includes(e.key)) keyInp.r = false;
+});
+
+// 터치 드래그로도 두꺼비 조향 가능 (기울이기 미지원 환경 대비)
+cvs.addEventListener('touchmove', e => {
+  if (state !== 'play') return;
+  const t = e.touches[0];
+  const rect = cvs.getBoundingClientRect();
+  const tx = t.clientX - rect.left;
+  // 손가락 위치 쪽으로 부드럽게 목표 이동
+  if (!tiltActive) {
+    const diff = tx - (T.x + T.w/2);
+    T.targetVx = Math.max(-1, Math.min(1, diff / 40));
   }
-});
-window.addEventListener('keyup',e=>{
-  if(['ArrowLeft','a','A'].includes(e.key)) keyInp.l=false;
-  if(['ArrowRight','d','D'].includes(e.key)) keyInp.r=false;
-});
+}, { passive: true });
 
 /* ================================================================
    4. 시각 효과 & 파티클
@@ -520,8 +427,7 @@ function resetGame() {
   score=0; lives=3; combo=1; comboTimer=0; gameTime=0;
   feverM=0; frenzyT=0; slowMo=0; debuffSlow=0; dodgeCooldown=0;
   laser=null; laserClock=0; items=[]; parts=[]; floats=[]; shockwaves=[];
-  T.x=W/2-T.w/2; T.y=H-130; T.vx=0; T.vy=0;
-  T.dashT=0; T.dashCD=0; T.ghosts=[];
+  T.x=W/2-T.w/2; T.y=H-120; T.vx=0; T.targetVx=0;
   T.tg.forEach(t=>t.a=false);
   state='play';
   document.getElementById('titleMo').classList.add('hidden');
@@ -566,6 +472,7 @@ function loop(now) {
     shake=Math.max(0,shake-dt*4);
   }
 
+  // 배경
   const bg=ctx.createLinearGradient(0,0,0,H);
   if(frenzyT>0) {
     bg.addColorStop(0,'#450a0a'); bg.addColorStop(0.6,'#2b0404'); bg.addColorStop(1,'#0f172a');
@@ -574,8 +481,9 @@ function loop(now) {
   }
   ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
 
-  const gY=H-90;
-  ctx.fillStyle = frenzyT>0 ? '#7f1d1d' : '#1e293b'; ctx.fillRect(0,gY,W,90);
+  // 바닥
+  const gY=H-75;
+  ctx.fillStyle = frenzyT>0 ? '#7f1d1d' : '#1e293b'; ctx.fillRect(0,gY,W,75);
   ctx.fillStyle = frenzyT>0 ? '#f43f5e' : '#38bdf8'; ctx.fillRect(0,gY,W,5);
 
   if(state==='play') update(dt,gY);
@@ -583,7 +491,7 @@ function loop(now) {
   drawLaser();
   drawShockwaves(dt);
   drawItems();
-  drawToad();
+  drawToad(gY);
   drawParts(dt);
   drawFloats(dt);
 
@@ -604,14 +512,13 @@ function update(dt,gY) {
   let speedMult = isWarmup ? 1.0 : (1.0 + Math.min(1.6, tDiff * 0.075) + Math.min(0.6, score * 0.0001));
   if(frenzyT>0) speedMult *= 1.35;
 
-  if(T.dashT>0) T.dashT-=dt;
-  if(T.dashCD>0) T.dashCD-=dt;
   if(debuffSlow>0) { debuffSlow-=dt; if(debuffSlow<=0) updateHUD(); }
   if(dodgeCooldown>0) dodgeCooldown-=dt;
 
   if(comboTimer>0) comboTimer-=dt;
   else if(combo>1) { combo=Math.max(1,combo-1); updateHUD(); comboTimer=1.8; }
 
+  // 광란 모드 타이머
   if(frenzyT>0) {
     frenzyT-=dt;
     feverM=(frenzyT/9.0)*100;
@@ -620,45 +527,54 @@ function update(dt,gY) {
     }
   }
 
-  let moveX = 0;
-  if(joystickActive) {
-    moveX = joystickVector.x;
-  } else if(keyInp.l) moveX = -1;
-  else if(keyInp.r) moveX = 1;
+  // 📱 틸트(기울이기) 조향 물리 연산
+  let normalizedTilt = 0;
+  if (tiltActive) {
+    // -20도 ~ +20도 범위 정규화 (-1 ~ 1), 데드존 2도
+    if (Math.abs(tiltGamma) > 2.0) {
+      normalizedTilt = Math.max(-1, Math.min(1, tiltGamma / 20.0));
+    }
+  } else if (keyInp.l) normalizedTilt = -1;
+  else if (keyInp.r) normalizedTilt = 1;
+  else if (T.targetVx !== 0) normalizedTilt = T.targetVx;
 
-  if(moveX < -0.15) T.fd = -1;
-  else if(moveX > 0.15) T.fd = 1;
+  if (normalizedTilt < -0.1) T.fd = -1;
+  else if (normalizedTilt > 0.1) T.fd = 1;
 
-  let spd = frenzyT>0 ? 430 : 330;
-  if(debuffSlow>0) spd*=0.45;
+  let maxMoveSpeed = frenzyT > 0 ? 540 : 420;
+  if (debuffSlow > 0) maxMoveSpeed *= 0.45;
 
-  if(T.dashT<=0) {
-    if(Math.abs(moveX) > 0.15) T.vx = moveX * spd;
-    else T.vx *= 0.72;
-  }
+  // 부드러운 관성 가속도
+  const desiredVx = normalizedTilt * maxMoveSpeed;
+  T.vx += (desiredVx - T.vx) * 0.25;
 
-  T.vy+=1250*dt; T.x+=T.vx*dt; T.y+=T.vy*dt;
-  if(T.x<10)T.x=10; if(T.x>W-T.w-10)T.x=W-T.w-10;
-  if(T.y>=gY-T.h){T.y=gY-T.h;T.vy=0;T.gr=true;}
+  T.x += T.vx * dt;
+  if(T.x < 10) { T.x = 10; T.vx = 0; }
+  if(T.x > W - T.w - 10) { T.x = W - T.w - 10; T.vx = 0; }
+  T.y = gY - T.h; // 점프 없이 바닥 고정
 
-  T.wig+=dt*12;
+  T.wig += Math.abs(T.vx) * 0.05 + dt * 6;
 
-  if(T.dashT>0) T.ghosts.push({x:T.x,y:T.y,a:0.65});
-  T.ghosts.forEach(g=>g.a-=dt*4.0);
-  T.ghosts=T.ghosts.filter(g=>g.a>0);
-
-  const sx=T.x+T.w/2, sy=T.y+12;
-  T.tg.forEach(t=>{
-    if(!t.a)return;
-    const dx=t.tx-sx,dy=t.ty-sy,d=Math.hypot(dx,dy)||1;
-    const mx=Math.min(d,t.ml);
-    const spd = (frenzyT>0 ? 2800 : 1700) * Math.min(1.5, Math.sqrt(speedMult)) * dt;
-    if(!t.ret){ t.l+=spd; if(t.l>=mx){t.l=mx;t.ret=true;} }
-    else { t.l-=spd*1.5; if(t.l<=0){t.a=false;t.l=0;} }
-    t.x=sx+(dx/d)*t.l; t.y=sy+(dy/d)*t.l;
+  // 혓바닥 초고속 발사
+  const sx = T.x + T.w/2, sy = T.y + 12;
+  T.tg.forEach(t => {
+    if(!t.a) return;
+    const dx = t.tx - sx, dy = t.ty - sy, d = Math.hypot(dx,dy) || 1;
+    const mx = Math.min(d, t.ml);
+    const spd = (frenzyT>0 ? 3200 : 2100) * Math.min(1.5, Math.sqrt(speedMult)) * dt;
+    if(!t.ret) {
+      t.l += spd;
+      if(t.l >= mx) { t.l = mx; t.ret = true; }
+    } else {
+      t.l -= spd * 1.6;
+      if(t.l <= 0) { t.a = false; t.l = 0; }
+    }
+    t.x = sx + (dx/d)*t.l;
+    t.y = sy + (dy/d)*t.l;
   });
 
-  laserClock+=dt;
+  // 낙뢰
+  laserClock += dt;
   const laserInterval = frenzyT>0 ? Math.max(1.8, 3.2 - tDiff*0.06) : Math.max(2.5, 5.5 - tDiff*0.07);
   if(!laser && gameTime > 6.0 && laserClock > laserInterval) {
     laserClock=0;
@@ -674,7 +590,7 @@ function update(dt,gY) {
     } else {
       laser.blast-=dt;
       const cx=T.x+T.w/2;
-      if(T.dashT<=0 && cx>=laser.x && cx<=laser.x+laser.w) {
+      if(cx>=laser.x && cx<=laser.x+laser.w) {
         takeDamage();
         laser=null;
         return;
@@ -683,6 +599,7 @@ function update(dt,gY) {
     }
   }
 
+  // 스폰
   spawnClk+=dt;
   let spRate = isWarmup ? 0.72 : Math.max(0.15, 0.68 - tDiff*0.026 - score*0.00009);
   if(frenzyT>0) spRate = 0.12;
@@ -695,10 +612,10 @@ function update(dt,gY) {
       else if(r<0.75) items.push({type:'fly',x:Math.random()<0.5?-15:W+15,y:80+Math.random()*(H*0.4),vx:(Math.random()<0.5?1:-1)*140,r:9,t:0});
       else items.push({type:'gold',x:40+Math.random()*(W-80),y:-30,vy:190,r:17,rot:0});
     } else if(frenzyT>0) {
-      if(r<0.42) items.push({type:'gold',x:25+Math.random()*(W-50),y:-30,vy:(220+Math.random()*120)*speedMult,r:16,rot:0});
-      else if(r<0.68) items.push({type:'muk',x:25+Math.random()*(W-50),y:-30,vy:(190+Math.random()*100)*speedMult,r:15,rot:0});
+      if(r<0.45) items.push({type:'gold',x:25+Math.random()*(W-50),y:-30,vy:(220+Math.random()*120)*speedMult,r:16,rot:0});
+      else if(r<0.70) items.push({type:'muk',x:25+Math.random()*(W-50),y:-30,vy:(190+Math.random()*100)*speedMult,r:15,rot:0});
       else {
-        const tvx=(T.x-W/2)*0.4;
+        const tvx=(T.x-W/2)*0.45;
         items.push({type:'spike',x:25+Math.random()*(W-50),y:-30,vx:tvx,vy:(280+Math.random()*180)*speedMult,r:17,rot:0,dodged:false});
       }
     } else {
@@ -712,12 +629,13 @@ function update(dt,gY) {
         vx:(Math.random()<0.5?1:-1)*(150+Math.random()*120)*Math.min(1.5, speedMult),r:9,t:0
       });
       else {
-        const tvx=(T.x-W/2)*0.35;
+        const tvx=(T.x-W/2)*0.38;
         items.push({type:'spike',x:25+Math.random()*(W-50),y:-30,vx:tvx,vy:(250+Math.random()*170)*speedMult,r:17,rot:0,dodged:false});
       }
     }
   }
 
+  // 충돌 판정
   const cx=T.x+T.w/2, cy=T.y+T.h/2;
   for(let i=items.length-1;i>=0;i--) {
     const it=items[i];
@@ -735,43 +653,38 @@ function update(dt,gY) {
       }
     }
 
-    if(it.type==='spike' && !it.dodged && dodgeCooldown<=0 && Math.hypot(it.x-cx, it.y-cy) < 34) {
+    // ⚡ 저스트 닷지 판정 (기울여서 가시돌을 아슬아슬하게 피했을 때!)
+    if(it.type==='spike' && !it.dodged && dodgeCooldown<=0 && Math.hypot(it.x-cx, it.y-cy) < 38) {
       it.dodged = true;
-      dodgeCooldown = 2.2;
+      dodgeCooldown = 2.0;
       slowMo = 0.35;
-      addFever(18);
-      score += 160;
+      addFever(20);
+      score += 180;
       shake = 0.4;
       sfx('dodge');
-      addShockwave(cx, cy, '#38bdf8', 60);
+      addShockwave(cx, cy, '#38bdf8', 65);
       addFloat(cx, cy-25, '⚡ JUST DODGE!', '#38bdf8');
       updateHUD();
     }
 
+    // 혓바닥 히트 (자석 스냅 반경 강화)
     let caught=false;
     for(const t of T.tg){
-      if(t.a && Math.hypot(it.x-t.x,it.y-t.y)<it.r+15){
+      if(t.a && Math.hypot(it.x-t.x,it.y-t.y)<it.r+18){
         t.ret=true; caught=true; break;
       }
     }
     if(caught){ handleCatch(it,i,'tongue'); continue; }
 
+    // 몸통 충돌
     if(Math.hypot(it.x-cx,it.y-cy)<it.r+18) {
-      if(T.dashT>0) {
-        if(it.type==='spike'||it.type==='poison'){
-          score+=140; addFloat(it.x,it.y-10,'+140 DASH','#c084fc');
-          addShockwave(it.x,it.y,'#c084fc',40);
-          addParts(it.x,it.y,'#c084fc',10); items.splice(i,1); updateHUD();
-          continue;
-        }
-      }
       handleBodyHit(it,i);
     }
   }
 }
 
 function handleCatch(it,i,method) {
-  const bonus=method==='tongue'?1.25:1;
+  const bonus = 1.3; // 터치 조준 캐치 보너스
   addShockwave(it.x,it.y,'#facc15',50);
   sfx('crunch');
 
@@ -862,7 +775,7 @@ function triggerGameOver() {
   let rank='🪨 흙두꺼비';
   if(score>=15000) rank='👑 신화급 묵신';
   else if(score>=9000) rank='⚡ 지리산 패왕';
-  else if(score>=4500) rank='🏅 광란 생존자';
+  else if(score>=4500) rank='🏅 틸트 마스터';
   else if(score>=2000) rank='🐸 묵 매니아';
 
   document.getElementById('oRank').textContent=`[${rank}]`;
@@ -909,34 +822,29 @@ function drawShockwaves(dt) {
   ctx.globalAlpha=1;
 }
 
-function drawToad() {
+function drawToad(gY) {
   ctx.save();
-  const tx=T.x,ty=T.y;
+  const tx=T.x, ty=T.y;
 
-  T.ghosts.forEach(g=>{
-    ctx.fillStyle=`rgba(168,85,247,${g.a*0.5})`;
-    ctx.beginPath();ctx.ellipse(g.x+T.w/2,g.y+T.h/2,T.w/2,T.h/2,0,0,6.28);ctx.fill();
-  });
-
-  if(T.dashT>0){
-    ctx.shadowColor='#c084fc'; ctx.shadowBlur=20;
-  }
-
+  // 혓바닥
   T.tg.forEach(t=>{
     if(!t.a)return;
     ctx.strokeStyle = frenzyT>0 ? '#f43f5e' : '#fbbf24';
-    ctx.lineWidth = frenzyT>0 ? 8.5 : 6.5; ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(tx+T.w/2,ty+12);ctx.lineTo(t.x,t.y);ctx.stroke();
+    ctx.lineWidth = frenzyT>0 ? 9 : 7; ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(tx+T.w/2,ty+14);ctx.lineTo(t.x,t.y);ctx.stroke();
     ctx.fillStyle = frenzyT>0 ? '#fecdd3' : '#fef08a';
-    ctx.beginPath();ctx.arc(t.x,t.y,frenzyT>0?9:7,0,6.28);ctx.fill();
+    ctx.beginPath();ctx.arc(t.x,t.y,frenzyT>0?10:7.5,0,6.28);ctx.fill();
   });
 
+  // 몸체
   ctx.fillStyle = frenzyT>0 ? '#dc2626' : debuffSlow>0 ? '#6b21a8' : '#15803d';
   ctx.beginPath();ctx.ellipse(tx+T.w/2,ty+T.h/2+2,T.w/2,T.h/2-2,0,0,6.28);ctx.fill();
 
+  // 배
   ctx.fillStyle = frenzyT>0 ? '#fef08a' : '#86efac';
   ctx.beginPath();ctx.ellipse(tx+T.w/2,ty+T.h/2+6,T.w/3.2,T.h/3.5,0,0,6.28);ctx.fill();
 
+  // 털
   ctx.fillStyle = frenzyT>0 ? '#7f1d1d' : '#14532d';
   [{x:10,y:12},{x:22,y:8},{x:34,y:10},{x:15,y:22},{x:30,y:20}].forEach((hr,idx)=>{
     ctx.beginPath();ctx.arc(tx+hr.x,ty+hr.y,2.5,0,6.28);ctx.fill();
@@ -945,6 +853,7 @@ function drawToad() {
     ctx.beginPath();ctx.moveTo(tx+hr.x,ty+hr.y);ctx.lineTo(tx+hr.x+sw,ty+hr.y-7);ctx.stroke();
   });
 
+  // 눈
   const lk=T.fd*2;
   [{x:14,y:6},{x:36,y:6}].forEach(e=>{
     ctx.fillStyle='#fef08a';ctx.beginPath();ctx.arc(tx+e.x,ty+e.y,6.5,0,6.28);ctx.fill();
@@ -1030,12 +939,16 @@ function drawFloats(dt) {
 }
 
 /* ================================================================
-   7. 버튼 이벤트
+   7. 버튼 이벤트 & 틸트 권한 요청
    ================================================================ */
-document.getElementById('startBtn').addEventListener('click',resetGame);
-document.getElementById('restartBtn').addEventListener('click',resetGame);
+document.getElementById('startBtn').addEventListener('click', () => {
+  requestTiltPermission();
+  resetGame();
+});
 
-document.getElementById('copyLinkBtn').addEventListener('click',()=>{
+document.getElementById('restartBtn').addEventListener('click', resetGame);
+
+document.getElementById('copyLinkBtn').addEventListener('click', () => {
   const url = 'https://lee3q.github.io/toad-muk/';
   if(navigator.clipboard) {
     navigator.clipboard.writeText(url).then(()=>{
