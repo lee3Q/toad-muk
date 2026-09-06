@@ -21,7 +21,7 @@
 ## 파일
 
 - `index.html`: 배포 가능한 단일 파일 게임
-- `toad_muk_README.md`: 공유용 README 사본
+- `toad_muk_README.md`: 공유용 README
 
 ## 라이선스
 
