@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#050508">
-<title>털두꺼비의 묵 사냥 - 하이퍼 버스트</title>
+<title>털두꺼비의 묵 사냥: 광란 모드</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
   html, body {
@@ -39,45 +39,73 @@
   #lb { color:#f43f5e; letter-spacing:2px; }
   #sb { pointer-events:auto; cursor:pointer; }
   
-  #fbc { width:100%; height:7px; background:rgba(30,41,59,0.8); border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.08); }
-  #fb { width:0%; height:100%; background:linear-gradient(90deg,#f59e0b,#ef4444,#a855f7); transition:width 0.1s ease-out; }
-  
-  #stb {
-    display:none; background:linear-gradient(135deg,#ef4444,#f59e0b);
-    color:#fff; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:900;
-    animation:blink 0.35s infinite alternate;
+  #modeBadge {
+    font-size:11px; font-weight:900; padding:3px 8px; border-radius:10px;
+    background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid #38bdf8;
+    text-transform:uppercase;
   }
-  @keyframes blink { from{opacity:0.75;transform:scale(0.96)} to{opacity:1;transform:scale(1.04)} }
+  #modeBadge.frenzy {
+    background:linear-gradient(135deg,#ef4444,#ec4899);
+    color:#fff; border-color:#f43f5e;
+    animation:modeBlink 0.3s infinite alternate;
+  }
+  @keyframes modeBlink { from{transform:scale(0.95)} to{transform:scale(1.05)} }
 
-  /* 모바일 컨트롤: 3버튼 + 스와이프/탭 */
-  #tc {
-    position:absolute; bottom:16px; left:0; right:0;
-    padding:0 16px; display:flex; justify-content:space-between; align-items:flex-end;
-    pointer-events:none; z-index:20;
+  #fbc { width:100%; height:7px; background:rgba(30,41,59,0.8); border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.08); }
+  #fb { width:0%; height:100%; background:linear-gradient(90deg,#38bdf8,#f59e0b,#ef4444); transition:width 0.1s ease-out; }
+
+  /* 한 손 조작용 가상 조이스틱 영역 */
+  #joystickZone {
+    position:absolute; bottom:20px; left:20px;
+    width:130px; height:130px;
+    border-radius:50%;
+    background:rgba(30,41,59,0.35);
+    backdrop-filter:blur(6px);
+    border:2px dashed rgba(255,255,255,0.25);
+    display:flex; justify-content:center; align-items:center;
+    pointer-events:auto;
+    touch-action:none;
+    z-index:25;
   }
-  .cg { display:flex; gap:14px; pointer-events:auto; }
-  .bt {
-    width:72px; height:72px; border-radius:50%;
-    background:rgba(30,41,59,0.88); backdrop-filter:blur(10px);
-    border:2.5px solid rgba(255,255,255,0.22);
-    box-shadow:0 8px 20px rgba(0,0,0,0.5);
+  #joystickKnob {
+    width:56px; height:56px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #38bdf8, #0284c7);
+    box-shadow:0 4px 16px rgba(56,189,248,0.5);
+    border:2px solid #ffffff;
+    pointer-events:none;
+    transform:translate(0px, 0px);
+    transition:transform 0.04s ease-out;
+  }
+  #joystickLabel {
+    position:absolute; bottom:-18px; font-size:10px; font-weight:700; color:#94a3b8; pointer-events:none;
+  }
+
+  /* 한 손 엄지 보조 액션 버튼 (점프/대시) */
+  #actionGroup {
+    position:absolute; bottom:24px; right:20px;
+    display:flex; gap:12px; pointer-events:auto; z-index:25;
+  }
+  .act-btn {
+    width:64px; height:64px; border-radius:50%;
+    background:rgba(30,41,59,0.85); backdrop-filter:blur(8px);
+    border:2px solid rgba(255,255,255,0.2);
+    box-shadow:0 6px 18px rgba(0,0,0,0.5);
     display:flex; flex-direction:column; justify-content:center; align-items:center;
-    color:#f8fafc; font-size:24px; font-weight:900;
-    touch-action:none; transition:transform 0.04s,background 0.04s;
+    color:#fff; font-size:20px; font-weight:900;
+    touch-action:none; transition:transform 0.05s, background 0.05s;
   }
-  .bt:active,.bt.pressed { transform:scale(0.86); background:rgba(56,189,248,0.45); border-color:#38bdf8; }
-  .bl { font-size:9px; color:#94a3b8; margin-top:-2px; }
-  .bt-j { width:78px; height:78px; background:rgba(16,185,129,0.3); border-color:rgba(52,211,153,0.5); }
-  .bt-j:active,.bt-j.pressed { background:rgba(16,185,129,0.6); border-color:#34d399; }
+  .act-btn:active, .act-btn.pressed { transform:scale(0.88); background:rgba(56,189,248,0.5); border-color:#38bdf8; }
+  .act-lbl { font-size:9px; color:#94a3b8; margin-top:-2px; }
 
   /* 모달 */
   .mo {
-    position:absolute; inset:0; background:rgba(8,11,20,0.92); backdrop-filter:blur(10px);
+    position:absolute; inset:0; background:rgba(8,11,20,0.93); backdrop-filter:blur(10px);
     display:flex; flex-direction:column; justify-content:center; align-items:center;
     padding:24px; text-align:center; z-index:50;
   }
   .hidden { display:none!important; }
-  h1 { font-size:26px; font-weight:900; color:#4ade80; margin-bottom:4px; text-shadow:0 0 16px rgba(74,222,128,0.4); }
+  h1 { font-size:25px; font-weight:900; color:#4ade80; margin-bottom:4px; text-shadow:0 0 16px rgba(74,222,128,0.4); }
   .sub { font-size:13px; color:#94a3b8; margin-bottom:14px; }
   .gbox {
     background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
@@ -85,7 +113,7 @@
     text-align:left; line-height:1.6; margin-bottom:18px; width:92%; max-height:220px; overflow-y:auto;
   }
   .gi { margin-bottom:4px; display:flex; align-items:flex-start; gap:6px; }
-  
+
   .pbtn {
     width:85%; max-width:250px; padding:15px 0;
     background:linear-gradient(135deg,#10b981,#059669); border:none; border-radius:14px;
@@ -124,7 +152,7 @@
   <div id="hud">
     <div class="hr">
       <div class="b" id="sc">SCORE: 0</div>
-      <div class="b" id="stb">🔥 FEVER!</div>
+      <div id="modeBadge">일반 모드</div>
       <div class="b" id="cb" style="color:#38bdf8;">x1</div>
       <div class="b" id="lb">♥♥♥</div>
       <div class="b" id="sb">🔊</div>
@@ -134,32 +162,32 @@
 
   <canvas id="c"></canvas>
 
-  <!-- 가상 조작 패드 -->
-  <div id="tc">
-    <div class="cg">
-      <div class="bt" id="bL">◀<span class="bl">좌</span></div>
-      <div class="bt" id="bR">▶<span class="bl">우</span></div>
-    </div>
-    <div class="cg">
-      <div class="bt bt-j" id="bJ">▲<span class="bl">점프</span></div>
-    </div>
+  <!-- 한 손 조작 조이스틱 -->
+  <div id="joystickZone">
+    <div id="joystickKnob"></div>
+    <div id="joystickLabel">이동 / 위로 밀면 점프</div>
+  </div>
+
+  <!-- 보조 엄지 터치 버튼 -->
+  <div id="actionGroup">
+    <div class="act-btn" id="btnDash">💨<span class="act-lbl">대시</span></div>
+    <div class="act-btn" id="btnJump">▲<span class="act-lbl">점프</span></div>
   </div>
 
   <!-- 인트로 모달 -->
   <div class="mo" id="titleMo">
-    <div style="font-size:52px;margin-bottom:8px;animation:blink 1.2s infinite alternate;">🐸⚡</div>
+    <div style="font-size:50px;margin-bottom:8px;animation:modeBlink 1.2s infinite alternate;">🐸🔥</div>
     <h1>털두꺼비의 묵 사냥</h1>
-    <div class="sub">지리산 털두꺼비의 하이퍼 아케이드!</div>
+    <div class="sub">광란 모드 에디션 (한 손 조이스틱 플레이)</div>
     <div class="gbox">
-      <div class="gi"><b>👆 화면 탭</b> = 혓바닥 초고속 발사 (근처 자동 조준)</div>
-      <div class="gi"><b>👈👉 스와이프</b> = 0.3초 무적 대시 회피</div>
-      <div class="gi"><b>⚡ 저스트 닷지</b>: 가시돌을 아슬아슬 스치면 <b>불릿타임(슬로우) + 피버 폭풍 충전!</b></div>
-      <div class="gi"><b>🌈 무지개 묵</b>: 5초간 <b>하이퍼 버스트</b>! 가시돌을 터뜨려 황금묵으로 분열!</div>
-      <div class="gi"><b>❄️ 얼음 묵</b>: 5초 전장 65% 불릿타임 슬로우 모션</div>
-      <div class="gi"><b>💣 폭탄 묵</b>: 연쇄 폭발로 화면 클리어!</div>
-      <div class="gi"><b>🔥 피버 모드</b>: 게이지 완충 시 트리플 혓바닥 난사</div>
+      <div class="gi"><b>🕹️ 조이스틱</b>: 좌우 이동 & <b>위로 밀면 점프</b> (한 손 완벽 조작!)</div>
+      <div class="gi"><b>👆 화면 터치</b>: 혓바닥 초고속 발사 (자동 조준)</div>
+      <div class="gi"><b>⚡ 일반 모드</b>: 묵을 먹어 광란 게이지를 100%까지 채워라!</div>
+      <div class="gi"><b>🔥 광란 모드 (BERSERK)</b>: <b>5갈래 혓바닥</b>이 화면을 쓸어담음! 단, <b>폭풍 가시돌과 낙뢰를 무조건 칼회피</b>해야 살아남는다!</div>
+      <div class="gi"><b>⚡ 저스트 닷지</b>: 가시돌을 아슬아슬 스치면 순간 불릿타임 + 게이지 급충!</div>
+      <div class="gi"><b>❄️ 얼음 묵</b>: 위기 탈출용 슬로우모션 (희귀 스폰)</div>
     </div>
-    <button class="pbtn" id="startBtn">게임 시작</button>
+    <button class="pbtn" id="startBtn">광란의 묵 사냥 시작</button>
   </div>
 
   <!-- 게임오버 모달 -->
@@ -172,7 +200,7 @@
       <div id="hst" style="color:#38bdf8;font-size:13px;font-weight:700;">최고 기록: 0</div>
     </div>
     <button class="restart-btn" id="restartBtn">다시 도전</button>
-    <button class="link-btn" id="copyLinkBtn">🔗 게임 링크 복사</button>
+    <button class="link-btn" id="copyLinkBtn">🔗 친구에게 게임 링크 복사</button>
   </div>
 
   <div class="toast" id="toast">링크가 복사되었습니다!</div>
@@ -184,7 +212,7 @@
    ================================================================ */
 const cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
 const scEl=document.getElementById('sc'), cbEl=document.getElementById('cb'),
-      lbEl=document.getElementById('lb'), stbEl=document.getElementById('stb'),
+      lbEl=document.getElementById('lb'), modeBadge=document.getElementById('modeBadge'),
       fbEl=document.getElementById('fb'), sbEl=document.getElementById('sb'),
       toast=document.getElementById('toast');
 
@@ -197,7 +225,7 @@ function resize() {
 window.addEventListener('resize',resize); resize();
 
 /* ================================================================
-   1. 강력한 타격감의 Web Audio 사운드 엔진
+   1. Web Audio 사운드 엔진
    ================================================================ */
 let ac=null, sOn=true, bgmT=null, bgmI=0;
 function getAC() {
@@ -223,7 +251,7 @@ function sfx(tp) {
       o.frequency.linearRampToValueAtTime(80,t+0.12);
       g.gain.setValueAtTime(0.2,t); g.gain.linearRampToValueAtTime(0.01,t+0.12);
       o.start(t); o.stop(t+0.12);
-      if(navigator.vibrate) navigator.vibrate(35);
+      if(navigator.vibrate) navigator.vibrate(30);
     } else if(tp==='tongue') {
       const o=a.createOscillator(), g=a.createGain();
       o.connect(g); g.connect(a.destination);
@@ -232,39 +260,36 @@ function sfx(tp) {
       g.gain.setValueAtTime(0.18,t); g.gain.linearRampToValueAtTime(0.01,t+0.06);
       o.start(t); o.stop(t+0.06);
     } else if(tp==='crunch') {
-      // 찰진 타격감: 킥 펀치 + 하모닉
       const o1=a.createOscillator(), g1=a.createGain();
       o1.connect(g1); g1.connect(a.destination);
-      o1.type='triangle'; o1.frequency.setValueAtTime(180,t);
+      o1.type='triangle'; o1.frequency.setValueAtTime(190,t);
       o1.frequency.exponentialRampToValueAtTime(45,t+0.12);
       g1.gain.setValueAtTime(0.3,t); g1.gain.linearRampToValueAtTime(0.01,t+0.12);
       o1.start(t); o1.stop(t+0.12);
 
       const o2=a.createOscillator(), g2=a.createGain();
       o2.connect(g2); g2.connect(a.destination);
-      o2.type='square'; o2.frequency.setValueAtTime(600,t);
-      o2.frequency.setValueAtTime(900,t+0.04);
-      g2.gain.setValueAtTime(0.12,t); g2.gain.linearRampToValueAtTime(0.01,t+0.1);
+      o2.type='square'; o2.frequency.setValueAtTime(650,t);
+      o2.frequency.setValueAtTime(980,t+0.04);
+      g2.gain.setValueAtTime(0.14,t); g2.gain.linearRampToValueAtTime(0.01,t+0.1);
       o2.start(t); o2.stop(t+0.1);
       if(navigator.vibrate) navigator.vibrate(25);
     } else if(tp==='dodge') {
-      // 저스트 닷지 쾌감 사운드 (우주 슬로우 워프)
       const o=a.createOscillator(), g=a.createGain();
       o.connect(g); g.connect(a.destination);
-      o.type='sine'; o.frequency.setValueAtTime(300,t);
-      o.frequency.exponentialRampToValueAtTime(900,t+0.25);
+      o.type='sine'; o.frequency.setValueAtTime(320,t);
+      o.frequency.exponentialRampToValueAtTime(950,t+0.25);
       g.gain.setValueAtTime(0.25,t); g.gain.linearRampToValueAtTime(0.01,t+0.25);
       o.start(t); o.stop(t+0.25);
       if(navigator.vibrate) navigator.vibrate([40, 30, 60]);
-    } else if(tp==='burst') {
-      // 하이퍼 버스트 발동
+    } else if(tp==='frenzy_start') {
       const o=a.createOscillator(), g=a.createGain();
       o.connect(g); g.connect(a.destination);
       o.type='sawtooth';
-      [400, 600, 800, 1100, 1400].forEach((f,idx)=>o.frequency.setValueAtTime(f, t+idx*0.03));
-      g.gain.setValueAtTime(0.28,t); g.gain.linearRampToValueAtTime(0.01,t+0.3);
-      o.start(t); o.stop(t+0.3);
-      if(navigator.vibrate) navigator.vibrate([60, 40, 120]);
+      [400, 600, 900, 1200, 1600].forEach((f,idx)=>o.frequency.setValueAtTime(f, t+idx*0.04));
+      g.gain.setValueAtTime(0.3,t); g.gain.linearRampToValueAtTime(0.01,t+0.35);
+      o.start(t); o.stop(t+0.35);
+      if(navigator.vibrate) navigator.vibrate([70, 50, 140]);
     } else if(tp==='bomb') {
       const o=a.createOscillator(), g=a.createGain();
       o.connect(g); g.connect(a.destination);
@@ -272,7 +297,7 @@ function sfx(tp) {
       o.frequency.linearRampToValueAtTime(20,t+0.38);
       g.gain.setValueAtTime(0.4,t); g.gain.linearRampToValueAtTime(0.01,t+0.38);
       o.start(t); o.stop(t+0.38);
-      if(navigator.vibrate) navigator.vibrate(200);
+      if(navigator.vibrate) navigator.vibrate(180);
     } else if(tp==='hit') {
       const o=a.createOscillator(), g=a.createGain();
       o.connect(g); g.connect(a.destination);
@@ -298,16 +323,16 @@ function stepBGM() {
   try {
     const a=getAC(),t=a.currentTime,o=a.createOscillator(),g=a.createGain();
     o.connect(g);g.connect(a.destination);
-    const isSpecial = feverT > 0 || burstT > 0;
-    o.type = isSpecial ? 'sawtooth' : 'triangle';
-    o.frequency.setValueAtTime(bassN[bgmI%8]*(isSpecial?1.5:1),t);
+    const isFrenzy = frenzyT > 0;
+    o.type = isFrenzy ? 'sawtooth' : 'triangle';
+    o.frequency.setValueAtTime(bassN[bgmI%8]*(isFrenzy?1.6:1),t);
     bgmI++;
     g.gain.setValueAtTime(0.045,t);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
-    o.start(t);o.stop(t+0.16);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.14);
+    o.start(t);o.stop(t+0.15);
   } catch(e){}
 }
-function startBGM(){ if(bgmT)clearInterval(bgmT); bgmT=setInterval(stepBGM, (feverT>0||burstT>0)?110:160); }
+function startBGM(){ if(bgmT)clearInterval(bgmT); bgmT=setInterval(stepBGM, frenzyT>0?100:160); }
 function stopBGM(){ if(bgmT){clearInterval(bgmT);bgmT=null;} }
 sbEl.addEventListener('click',()=>{
   sOn=!sOn; sbEl.textContent=sOn?'🔊':'🔇';
@@ -315,56 +340,109 @@ sbEl.addEventListener('click',()=>{
 });
 
 /* ================================================================
-   2. 게임 상태 & 파라미터
+   2. 게임 상태 (일반 모드 vs 광란 모드)
    ================================================================ */
 let state='title';
 let score=0, lives=3, combo=1, comboTimer=0, gameTime=0;
 let hi=parseInt(localStorage.getItem('toad_v2_hi')||'0',10);
 let shake=0, screenFlash=0, slowMo=0, debuffSlow=0;
-let feverM=0, feverT=0, burstT=0; // 🌈 하이퍼 버스트 타이머
+let dodgeCooldown=0;
+
+let feverM=0;        // 0 ~ 100 광란 게이지
+let frenzyT=0;       // 🔥 광란 모드 지속 타이머 (9초)
 let laser=null, laserClock=0;
 
 const T={
   x:180,y:480,w:50,h:38,vx:0,vy:0,gr:true,fd:1,wig:0,
   dashT:0, dashCD:0, ghosts:[],
   tg:[
-    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:360,ret:false},
-    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:360,ret:false},
-    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:360,ret:false}
+    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:380,ret:false},
+    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:380,ret:false},
+    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:380,ret:false},
+    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:380,ret:false},
+    {a:false,x:0,y:0,tx:0,ty:0,l:0,ml:380,ret:false}
   ]
 };
 
 let items=[], parts=[], floats=[], shockwaves=[], spawnClk=0;
 
 /* ================================================================
-   3. 입력 & 자동조준
+   3. 한 손 조작 시스템: 가상 조이스틱 + 화면 탭
    ================================================================ */
-const inp={l:false,r:false};
+let joystickActive=false;
+let joystickStart={x:0, y:0};
+let joystickVector={x:0, y:0};
+const joystickZone=document.getElementById('joystickZone');
+const joystickKnob=document.getElementById('joystickKnob');
 
-function bindB(el,dn,up) {
-  const s=e=>{e.preventDefault();el.classList.add('pressed');dn();};
-  const u=e=>{e.preventDefault();el.classList.remove('pressed');if(up)up();};
-  el.addEventListener('touchstart',s,{passive:false});
-  el.addEventListener('touchend',u,{passive:false});
-  el.addEventListener('touchcancel',u,{passive:false});
-  el.addEventListener('mousedown',s);
-  el.addEventListener('mouseup',u);
-  el.addEventListener('mouseleave',u);
+function handleJoystickStart(cx, cy) {
+  joystickActive=true;
+  const rect=joystickZone.getBoundingClientRect();
+  joystickStart={x:rect.left+rect.width/2, y:rect.top+rect.height/2};
+  handleJoystickMove(cx, cy);
 }
-bindB(document.getElementById('bL'),()=>inp.l=true,()=>inp.l=false);
-bindB(document.getElementById('bR'),()=>inp.r=true,()=>inp.r=false);
-bindB(document.getElementById('bJ'),()=>doJump());
+
+function handleJoystickMove(cx, cy) {
+  if(!joystickActive) return;
+  const dx=cx-joystickStart.x;
+  const dy=cy-joystickStart.y;
+  const maxR=42;
+  const dist=Math.hypot(dx, dy);
+  const clampedDist=Math.min(dist, maxR);
+  const angle=Math.atan2(dy, dx);
+
+  const kx=Math.cos(angle)*clampedDist;
+  const ky=Math.sin(angle)*clampedDist;
+  joystickKnob.style.transform=`translate(${kx}px, ${ky}px)`;
+
+  joystickVector.x=kx/maxR;
+  joystickVector.y=ky/maxR;
+
+  // 조이스틱을 위로 밀면 점프!
+  if(joystickVector.y < -0.65) {
+    doJump();
+  }
+}
+
+function handleJoystickEnd() {
+  joystickActive=false;
+  joystickVector={x:0, y:0};
+  joystickKnob.style.transform=`translate(0px, 0px)`;
+}
+
+joystickZone.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  handleJoystickStart(t.clientX, t.clientY);
+},{passive:false});
+
+joystickZone.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  handleJoystickMove(t.clientX, t.clientY);
+},{passive:false});
+
+joystickZone.addEventListener('touchend',e=>{
+  e.preventDefault();
+  handleJoystickEnd();
+},{passive:false});
+joystickZone.addEventListener('touchcancel',handleJoystickEnd);
+
+document.getElementById('btnJump').addEventListener('touchstart',e=>{ e.preventDefault(); doJump(); },{passive:false});
+document.getElementById('btnJump').addEventListener('mousedown',doJump);
+document.getElementById('btnDash').addEventListener('touchstart',e=>{ e.preventDefault(); doDash(T.fd); },{passive:false});
+document.getElementById('btnDash').addEventListener('mousedown',()=>doDash(T.fd));
 
 function doJump() {
   if(T.gr) {
-    T.vy=-570; T.gr=false; sfx('jump');
+    T.vy=-580; T.gr=false; sfx('jump');
     addParts(T.x+T.w/2,T.y+T.h,'#10b981',8);
   }
 }
 function doDash(dir) {
   if(T.dashCD>0) return;
   T.dashT=0.30;
-  T.dashCD=0.52;
+  T.dashCD=0.50;
   T.vx=dir*950;
   sfx('dash');
 }
@@ -372,9 +450,9 @@ function doDash(dir) {
 function findNearestItem(tx,ty) {
   let best=null, bestD=Infinity;
   items.forEach(it=>{
-    if(it.type==='spike' && burstT<=0) return; // 버스트 모드가 아닐 땐 가시돌 제외
+    if(it.type==='spike' && frenzyT<=0) return;
     const d=Math.hypot(it.x-tx,it.y-ty);
-    if(d<bestD && d<260) { bestD=d; best=it; }
+    if(d<bestD && d<280) { bestD=d; best=it; }
   });
   return best;
 }
@@ -383,46 +461,37 @@ function fireTongues(tx,ty) {
   const near=findNearestItem(tx,ty);
   if(near){ tx=near.x; ty=near.y; }
 
-  const count = (feverT>0 || burstT>0) ? 3 : 1;
+  const count = frenzyT>0 ? 5 : 1; // 광란 모드 시 5갈래 기관총 혓바닥!
   for(let i=0;i<count;i++) {
     const t=T.tg[i];
     if(t.a) continue;
     t.a=true;
-    let ttx=tx,tty=ty;
-    if(i===1) ttx-=85;
-    if(i===2) ttx+=85;
+    let ttx=tx, tty=ty;
+    if(count===5) {
+      const offsets=[-110, -55, 0, 55, 110];
+      ttx += offsets[i];
+    }
     t.tx=ttx; t.ty=tty;
     t.l=0; t.ret=false;
   }
   sfx('tongue');
 }
 
-let touchStart=null;
 cvs.addEventListener('touchstart',e=>{
   if(state!=='play') return;
-  const t=e.touches[0], r=cvs.getBoundingClientRect();
-  touchStart={x:t.clientX-r.left, y:t.clientY-r.top, time:Date.now()};
-},{passive:true});
-
-cvs.addEventListener('touchend',e=>{
-  if(state!=='play'||!touchStart) return;
-  const t=e.changedTouches[0], r=cvs.getBoundingClientRect();
-  const ex=t.clientX-r.left, ey=t.clientY-r.top;
-  const dx=ex-touchStart.x, dy=ey-touchStart.y;
-  const dist=Math.hypot(dx,dy);
-  const elapsed=Date.now()-touchStart.time;
-
-  if(dist>45 && elapsed<280) {
-    doDash(dx>0?1:-1);
-  } else if(ey < H-120) {
-    fireTongues(ex,ey);
+  const t=e.touches[0];
+  const rect=cvs.getBoundingClientRect();
+  const tx=t.clientX-rect.left;
+  const ty=t.clientY-rect.top;
+  if(ty < H-130 || (tx > 140 && tx < W-130)) {
+    fireTongues(tx, ty);
   }
-  touchStart=null;
 },{passive:true});
 
+const keyInp={l:false, r:false};
 window.addEventListener('keydown',e=>{
-  if(['ArrowLeft','a','A'].includes(e.key)) inp.l=true;
-  if(['ArrowRight','d','D'].includes(e.key)) inp.r=true;
+  if(['ArrowLeft','a','A'].includes(e.key)) keyInp.l=true;
+  if(['ArrowRight','d','D'].includes(e.key)) keyInp.r=true;
   if(['ArrowUp','w','W'].includes(e.key)) doJump();
   if(['Shift','j','J'].includes(e.key)) doDash(T.fd);
   if(e.key===' '||e.key==='Enter'||e.key==='ArrowDown') {
@@ -434,26 +503,22 @@ window.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('keyup',e=>{
-  if(['ArrowLeft','a','A'].includes(e.key)) inp.l=false;
-  if(['ArrowRight','d','D'].includes(e.key)) inp.r=false;
+  if(['ArrowLeft','a','A'].includes(e.key)) keyInp.l=false;
+  if(['ArrowRight','d','D'].includes(e.key)) keyInp.r=false;
 });
 
 /* ================================================================
-   4. 시각 효과 (충격파, 플로팅 텍스트)
+   4. 시각 효과 & 파티클
    ================================================================ */
-function addFloat(x,y,text,color) {
-  floats.push({x,y,text,color,life:1.2,vy:-2.6});
-}
-function addShockwave(x,y,color,maxR=55) {
-  shockwaves.push({x,y,r:6,maxR,color,life:1.0});
-}
+function addFloat(x,y,text,color) { floats.push({x,y,text,color,life:1.2,vy:-2.6}); }
+function addShockwave(x,y,color,maxR=55) { shockwaves.push({x,y,r:6,maxR,color,life:1.0}); }
 
 /* ================================================================
-   5. 게임 루프 & 업데이트
+   5. 게임 루프 & 밸런스
    ================================================================ */
 function resetGame() {
   score=0; lives=3; combo=1; comboTimer=0; gameTime=0;
-  feverM=0; feverT=0; burstT=0; slowMo=0; debuffSlow=0;
+  feverM=0; frenzyT=0; slowMo=0; debuffSlow=0; dodgeCooldown=0;
   laser=null; laserClock=0; items=[]; parts=[]; floats=[]; shockwaves=[];
   T.x=W/2-T.w/2; T.y=H-130; T.vx=0; T.vy=0;
   T.dashT=0; T.dashCD=0; T.ghosts=[];
@@ -471,24 +536,12 @@ function updateHUD() {
   lbEl.textContent='♥'.repeat(Math.max(0,lives));
   fbEl.style.width=`${feverM}%`;
 
-  if(burstT>0) {
-    stbEl.style.display='block';
-    stbEl.textContent=`🌈 BURST: ${Math.ceil(burstT)}s`;
-    stbEl.style.background='linear-gradient(135deg,#f43f5e,#ec4899,#8b5cf6)';
-  } else if(feverT>0) {
-    stbEl.style.display='block';
-    stbEl.textContent=`🔥 FEVER: ${Math.ceil(feverT)}s`;
-    stbEl.style.background='linear-gradient(135deg,#ef4444,#f59e0b)';
-  } else if(debuffSlow>0) {
-    stbEl.style.display='block';
-    stbEl.textContent=`🟣 감속: ${Math.ceil(debuffSlow)}s`;
-    stbEl.style.background='linear-gradient(135deg,#7e22ce,#a855f7)';
-  } else if(slowMo>0) {
-    stbEl.style.display='block';
-    stbEl.textContent=`❄️ 불릿타임: ${Math.ceil(slowMo)}s`;
-    stbEl.style.background='linear-gradient(135deg,#0284c7,#38bdf8)';
+  if(frenzyT>0) {
+    modeBadge.textContent=`🔥 광란 BERSERK: ${Math.ceil(frenzyT)}s`;
+    modeBadge.className='frenzy';
   } else {
-    stbEl.style.display='none';
+    modeBadge.textContent='일반 모드';
+    modeBadge.className='';
   }
 }
 
@@ -505,8 +558,7 @@ function loop(now) {
   let dt=Math.min((now-lastT)/1000,0.05);
   lastT=now;
 
-  // 감속 불릿 타임 (65% 슬로우)
-  if(slowMo>0){ slowMo-=dt; dt*=0.35; }
+  if(slowMo>0){ slowMo-=dt; dt*=0.40; }
 
   ctx.save();
   if(shake>0) {
@@ -514,20 +566,17 @@ function loop(now) {
     shake=Math.max(0,shake-dt*4);
   }
 
-  // 배경
   const bg=ctx.createLinearGradient(0,0,0,H);
-  if(burstT>0) {
-    bg.addColorStop(0,'#4c0519'); bg.addColorStop(0.5,'#3b0764'); bg.addColorStop(1,'#0f172a');
-  } else if(feverT>0) {
-    bg.addColorStop(0,'#2e1065'); bg.addColorStop(0.7,'#4c0519'); bg.addColorStop(1,'#18181b');
+  if(frenzyT>0) {
+    bg.addColorStop(0,'#450a0a'); bg.addColorStop(0.6,'#2b0404'); bg.addColorStop(1,'#0f172a');
   } else {
     bg.addColorStop(0,'#030712'); bg.addColorStop(0.65,'#0f172a'); bg.addColorStop(0.92,'#1e1b4b'); bg.addColorStop(1,'#09090b');
   }
   ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
 
   const gY=H-90;
-  ctx.fillStyle = burstT>0?'#ec4899':feverT>0?'#831843':'#1e293b'; ctx.fillRect(0,gY,W,90);
-  ctx.fillStyle = burstT>0?'#f43f5e':feverT>0?'#f43f5e':'#38bdf8'; ctx.fillRect(0,gY,W,5);
+  ctx.fillStyle = frenzyT>0 ? '#7f1d1d' : '#1e293b'; ctx.fillRect(0,gY,W,90);
+  ctx.fillStyle = frenzyT>0 ? '#f43f5e' : '#38bdf8'; ctx.fillRect(0,gY,W,5);
 
   if(state==='play') update(dt,gY);
 
@@ -552,38 +601,40 @@ function update(dt,gY) {
   const isWarmup = gameTime <= 5.0;
   const tDiff = Math.max(0, gameTime - 5.0);
 
-  // 더 가파른 가속 곡선 (5초 후부터 급격히 스피드업!)
-  const speedMult = isWarmup ? 1.0 : (1.0 + Math.min(1.6, tDiff * 0.07) + Math.min(0.6, score * 0.0001));
+  let speedMult = isWarmup ? 1.0 : (1.0 + Math.min(1.6, tDiff * 0.075) + Math.min(0.6, score * 0.0001));
+  if(frenzyT>0) speedMult *= 1.35;
 
   if(T.dashT>0) T.dashT-=dt;
   if(T.dashCD>0) T.dashCD-=dt;
   if(debuffSlow>0) { debuffSlow-=dt; if(debuffSlow<=0) updateHUD(); }
+  if(dodgeCooldown>0) dodgeCooldown-=dt;
 
   if(comboTimer>0) comboTimer-=dt;
   else if(combo>1) { combo=Math.max(1,combo-1); updateHUD(); comboTimer=1.8; }
 
-  // 🌈 하이퍼 버스트 타이머
-  if(burstT>0) {
-    burstT-=dt;
-    if(burstT<=0) { burstT=0; startBGM(); updateHUD(); }
+  if(frenzyT>0) {
+    frenzyT-=dt;
+    feverM=(frenzyT/9.0)*100;
+    if(frenzyT<=0) {
+      frenzyT=0; feverM=0; startBGM(); updateHUD();
+    }
   }
 
-  // 피버 타이머
-  if(feverT>0) {
-    feverT-=dt;
-    feverM=(feverT/8.5)*100;
-    if(feverT<=0) { feverT=0; feverM=0; startBGM(); updateHUD(); }
-  }
+  let moveX = 0;
+  if(joystickActive) {
+    moveX = joystickVector.x;
+  } else if(keyInp.l) moveX = -1;
+  else if(keyInp.r) moveX = 1;
 
-  // 이동
-  let moveDir=0;
-  if(inp.l) { moveDir=-1; T.fd=-1; }
-  else if(inp.r) { moveDir=1; T.fd=1; }
+  if(moveX < -0.15) T.fd = -1;
+  else if(moveX > 0.15) T.fd = 1;
 
-  let spd = (burstT>0||feverT>0) ? 420 : 325;
+  let spd = frenzyT>0 ? 430 : 330;
   if(debuffSlow>0) spd*=0.45;
+
   if(T.dashT<=0) {
-    if(moveDir) T.vx=moveDir*spd; else T.vx*=0.72;
+    if(Math.abs(moveX) > 0.15) T.vx = moveX * spd;
+    else T.vx *= 0.72;
   }
 
   T.vy+=1250*dt; T.x+=T.vx*dt; T.y+=T.vy*dt;
@@ -596,24 +647,22 @@ function update(dt,gY) {
   T.ghosts.forEach(g=>g.a-=dt*4.0);
   T.ghosts=T.ghosts.filter(g=>g.a>0);
 
-  // 혓바닥
   const sx=T.x+T.w/2, sy=T.y+12;
   T.tg.forEach(t=>{
     if(!t.a)return;
     const dx=t.tx-sx,dy=t.ty-sy,d=Math.hypot(dx,dy)||1;
     const mx=Math.min(d,t.ml);
-    const spd = ((burstT>0||feverT>0) ? 2600 : 1650) * Math.min(1.5, Math.sqrt(speedMult)) * dt;
+    const spd = (frenzyT>0 ? 2800 : 1700) * Math.min(1.5, Math.sqrt(speedMult)) * dt;
     if(!t.ret){ t.l+=spd; if(t.l>=mx){t.l=mx;t.ret=true;} }
-    else { t.l-=spd*1.4; if(t.l<=0){t.a=false;t.l=0;} }
+    else { t.l-=spd*1.5; if(t.l<=0){t.a=false;t.l=0;} }
     t.x=sx+(dx/d)*t.l; t.y=sy+(dy/d)*t.l;
   });
 
-  // 낙뢰 시스템
   laserClock+=dt;
-  const laserInterval = Math.max(2.4, 5.5 - tDiff * 0.08);
+  const laserInterval = frenzyT>0 ? Math.max(1.8, 3.2 - tDiff*0.06) : Math.max(2.5, 5.5 - tDiff*0.07);
   if(!laser && gameTime > 6.0 && laserClock > laserInterval) {
     laserClock=0;
-    laser={x:25+Math.random()*(W-70),w:55,warn:1.0,blast:0,phase:'warn'};
+    laser={x:25+Math.random()*(W-70),w:55,warn:frenzyT>0?0.85:1.0,blast:0,phase:'warn'};
   }
   if(laser) {
     if(laser.phase==='warn') {
@@ -625,7 +674,7 @@ function update(dt,gY) {
     } else {
       laser.blast-=dt;
       const cx=T.x+T.w/2;
-      if(T.dashT<=0 && feverT<=0 && burstT<=0 && cx>=laser.x && cx<=laser.x+laser.w) {
+      if(T.dashT<=0 && cx>=laser.x && cx<=laser.x+laser.w) {
         takeDamage();
         laser=null;
         return;
@@ -634,9 +683,10 @@ function update(dt,gY) {
     }
   }
 
-  // 스폰 주기 (빠른 가속)
   spawnClk+=dt;
-  const spRate = isWarmup ? 0.72 : Math.max(0.16, 0.68 - tDiff * 0.025 - score * 0.00009);
+  let spRate = isWarmup ? 0.72 : Math.max(0.15, 0.68 - tDiff*0.026 - score*0.00009);
+  if(frenzyT>0) spRate = 0.12;
+
   if(spawnClk>spRate) {
     spawnClk=0;
     const r=Math.random();
@@ -644,25 +694,30 @@ function update(dt,gY) {
       if(r<0.50) items.push({type:'muk',x:30+Math.random()*(W-60),y:-30,vy:170+Math.random()*80,r:15,rot:0});
       else if(r<0.75) items.push({type:'fly',x:Math.random()<0.5?-15:W+15,y:80+Math.random()*(H*0.4),vx:(Math.random()<0.5?1:-1)*140,r:9,t:0});
       else items.push({type:'gold',x:40+Math.random()*(W-80),y:-30,vy:190,r:17,rot:0});
+    } else if(frenzyT>0) {
+      if(r<0.42) items.push({type:'gold',x:25+Math.random()*(W-50),y:-30,vy:(220+Math.random()*120)*speedMult,r:16,rot:0});
+      else if(r<0.68) items.push({type:'muk',x:25+Math.random()*(W-50),y:-30,vy:(190+Math.random()*100)*speedMult,r:15,rot:0});
+      else {
+        const tvx=(T.x-W/2)*0.4;
+        items.push({type:'spike',x:25+Math.random()*(W-50),y:-30,vx:tvx,vy:(280+Math.random()*180)*speedMult,r:17,rot:0,dodged:false});
+      }
     } else {
-      if(r<0.30) items.push({type:'muk',x:25+Math.random()*(W-50),y:-30,vy:(170+Math.random()*130)*speedMult,r:15,rot:0});
-      else if(r<0.39) items.push({type:'gold',x:30+Math.random()*(W-60),y:-30,vy:(200+Math.random()*120)*speedMult,r:17,rot:0});
-      else if(r<0.48) items.push({type:'ice',x:30+Math.random()*(W-60),y:-30,vy:(190+Math.random()*100)*speedMult,r:16,rot:0}); // 얼음 묵 빈도 상향
-      else if(r<0.54) items.push({type:'rainbow',x:35+Math.random()*(W-70),y:-30,vy:(210+Math.random()*100)*speedMult,r:17,rot:0}); // 🌈 하이퍼 버스트 묵
-      else if(r<0.59) items.push({type:'bomb',x:30+Math.random()*(W-60),y:-30,vy:(220+Math.random()*110)*speedMult,r:16,rot:0});
-      else if(r<0.66) items.push({type:'poison',x:25+Math.random()*(W-50),y:-30,vy:(180+Math.random()*100)*speedMult,r:16,rot:0});
-      else if(r<0.77) items.push({
+      if(r<0.34) items.push({type:'muk',x:25+Math.random()*(W-50),y:-30,vy:(170+Math.random()*130)*speedMult,r:15,rot:0});
+      else if(r<0.48) items.push({type:'gold',x:30+Math.random()*(W-60),y:-30,vy:(200+Math.random()*120)*speedMult,r:17,rot:0});
+      else if(r<0.52) items.push({type:'ice',x:30+Math.random()*(W-60),y:-30,vy:(190+Math.random()*100)*speedMult,r:16,rot:0});
+      else if(r<0.58) items.push({type:'bomb',x:30+Math.random()*(W-60),y:-30,vy:(220+Math.random()*110)*speedMult,r:16,rot:0});
+      else if(r<0.64) items.push({type:'poison',x:25+Math.random()*(W-50),y:-30,vy:(180+Math.random()*100)*speedMult,r:16,rot:0});
+      else if(r<0.75) items.push({
         type:'fly',x:Math.random()<0.5?-15:W+15,y:60+Math.random()*(H*0.45),
         vx:(Math.random()<0.5?1:-1)*(150+Math.random()*120)*Math.min(1.5, speedMult),r:9,t:0
       });
       else {
         const tvx=(T.x-W/2)*0.35;
-        items.push({type:'spike',x:25+Math.random()*(W-50),y:-30,vx:tvx,vy:(250+Math.random()*170)*speedMult,r:17,rot:0, dodged:false});
+        items.push({type:'spike',x:25+Math.random()*(W-50),y:-30,vx:tvx,vy:(250+Math.random()*170)*speedMult,r:17,rot:0,dodged:false});
       }
     }
   }
 
-  // 충돌 & 저스트 닷지 판정
   const cx=T.x+T.w/2, cy=T.y+T.h/2;
   for(let i=items.length-1;i>=0;i--) {
     const it=items[i];
@@ -673,20 +728,19 @@ function update(dt,gY) {
       if(it.vx)it.x+=it.vx*dt;
       it.y+=it.vy*dt; it.rot+=dt*3;
       if(it.y>gY+20){
-        if(['muk','gold','ice','rainbow','bomb'].includes(it.type)){
+        if(['muk','gold','ice','bomb'].includes(it.type)){
           comboTimer=0;
         }
         items.splice(i,1); continue;
       }
     }
 
-    // ⚡ 저스트 닷지 (Near-Miss Bullet Time) 판정:
-    // 가시돌이 두꺼비 32px 이내로 아슬아슬하게 스쳐지나갈 때
-    if(it.type==='spike' && !it.dodged && Math.hypot(it.x-cx, it.y-cy) < 42) {
+    if(it.type==='spike' && !it.dodged && dodgeCooldown<=0 && Math.hypot(it.x-cx, it.y-cy) < 34) {
       it.dodged = true;
-      slowMo = 0.4; // 0.4초간 시간 왜곡 슬로우모션!
-      addFever(18); // 피버 게이지 대량 충전
-      score += 150;
+      dodgeCooldown = 2.2;
+      slowMo = 0.35;
+      addFever(18);
+      score += 160;
       shake = 0.4;
       sfx('dodge');
       addShockwave(cx, cy, '#38bdf8', 60);
@@ -694,7 +748,6 @@ function update(dt,gY) {
       updateHUD();
     }
 
-    // 혓바닥 히트
     let caught=false;
     for(const t of T.tg){
       if(t.a && Math.hypot(it.x-t.x,it.y-t.y)<it.r+15){
@@ -703,7 +756,6 @@ function update(dt,gY) {
     }
     if(caught){ handleCatch(it,i,'tongue'); continue; }
 
-    // 몸통 히트
     if(Math.hypot(it.x-cx,it.y-cy)<it.r+18) {
       if(T.dashT>0) {
         if(it.type==='spike'||it.type==='poison'){
@@ -726,40 +778,29 @@ function handleCatch(it,i,method) {
   if(it.type==='muk') {
     const pts=Math.round(120*combo*bonus);
     score+=pts; combo=Math.min(25,combo+1); comboTimer=2.6;
-    addFever(8); addParts(it.x,it.y,'#f59e0b',12);
+    addFever(9); addParts(it.x,it.y,'#f59e0b',12);
     addFloat(it.x,it.y-10,`+${pts}`,'#facc15');
     screenFlash=0.15;
   } else if(it.type==='gold') {
     const pts=Math.round(400*combo*bonus);
     score+=pts; combo+=3; comboTimer=3.2;
-    addFever(25); addParts(it.x,it.y,'#facc15',20,1.6);
+    addFever(26); addParts(it.x,it.y,'#facc15',20,1.6);
     addFloat(it.x,it.y-10,`+${pts} ★`,'#fde047');
     screenFlash=0.35; shake=0.5;
   } else if(it.type==='ice') {
     const pts=Math.round(200*combo*bonus);
-    score+=pts; slowMo=5.0; // 5초간 불릿타임!
+    score+=pts; slowMo=4.5;
     addParts(it.x,it.y,'#38bdf8',20,1.5);
     addShockwave(it.x,it.y,'#38bdf8',70);
-    addFloat(it.x,it.y-10,'❄️ BULLET TIME!','#7dd3fc');
+    addFloat(it.x,it.y-10,'❄️ SLOW!','#7dd3fc');
     screenFlash=0.25;
-  } else if(it.type==='rainbow') {
-    // 🌈 하이퍼 버스트 모드!
-    burstT=4.8;
-    score+=500*combo;
-    sfx('burst'); shake=0.9; screenFlash=0.5;
-    addParts(it.x,it.y,'#ec4899',30,2.0);
-    addShockwave(it.x,it.y,'#f43f5e',80);
-    addFloat(it.x,it.y-10,'🌈 HYPER BURST!','#f43f5e');
-    startBGM();
   } else if(it.type==='bomb') {
-    // 연쇄 폭발
     sfx('bomb'); shake=1.1; screenFlash=0.55;
     addParts(it.x,it.y,'#e2e8f0',35,2.2);
     addShockwave(it.x,it.y,'#fff',90);
     addFloat(it.x,it.y-10,'💣 MEGA BOOM!','#fff');
     const killed=items.filter(o=>o.type==='spike'||o.type==='poison');
     score+=killed.length*100;
-    // 연쇄 파티클
     killed.forEach(k=>addParts(k.x,k.y,'#f97316',8));
     items=items.filter(o=>o.type!=='spike'&&o.type!=='poison');
   } else if(it.type==='poison') {
@@ -768,55 +809,37 @@ function handleCatch(it,i,method) {
     addFloat(it.x,it.y-10,'🟣 감속!','#c084fc');
   } else if(it.type==='fly') {
     const pts=Math.round(80*combo*bonus);
-    score+=pts; addFever(6); addParts(it.x,it.y,'#67e8f9',8);
+    score+=pts; addFever(7); addParts(it.x,it.y,'#67e8f9',8);
     addFloat(it.x,it.y-10,`+${pts}`,'#67e8f9');
     comboTimer=2.6;
   } else if(it.type==='spike') {
-    if(burstT>0) {
-      // 🌈 버스트 모드: 가시돌이 2개의 미니 황금묵으로 펑 터져 분열!
-      score+=250; sfx('crunch'); shake=0.6;
-      addParts(it.x,it.y,'#facc15',16,1.4);
-      addShockwave(it.x,it.y,'#fde047',50);
-      addFloat(it.x,it.y-10,'💥 POP! +250','#facc15');
-      // 미니 황금 묵 분열 투하
-      items.push({type:'gold',x:Math.max(20,it.x-25),y:it.y-15,vy:160,r:14,rot:0});
-      items.push({type:'gold',x:Math.min(W-20,it.x+25),y:it.y-15,vy:160,r:14,rot:0});
-    } else if(feverT>0) {
-      score+=200; sfx('crunch'); shake=0.5;
-      addParts(it.x,it.y,'#ef4444',14);
-      addFloat(it.x,it.y-10,'+200','#ef4444');
-    } else {
-      sfx('hit'); shake=0.4;
-      addParts(it.x,it.y,'#94a3b8',6);
-      it.vy=-270; return;
-    }
+    sfx('hit'); shake=0.4;
+    addParts(it.x,it.y,'#94a3b8',6);
+    it.vy=-280; return;
   }
   items.splice(i,1); updateHUD();
 }
 
 function handleBodyHit(it,i) {
-  if(['muk','gold','ice','rainbow','bomb','fly'].includes(it.type)){
+  if(['muk','gold','ice','bomb','fly'].includes(it.type)){
     handleCatch(it,i,'body'); return;
   }
   if(it.type==='poison'){
     handleCatch(it,i,'body'); return;
   }
   if(it.type==='spike') {
-    if(burstT>0||feverT>0){
-      handleCatch(it,i,'body');
-      return;
-    }
     items.splice(i,1); takeDamage();
   }
 }
 
 function addFever(amt) {
-  if(feverT>0||burstT>0) return;
+  if(frenzyT>0) return;
   feverM=Math.min(100,feverM+amt);
   if(feverM>=100) {
-    feverT=8.5; sfx('burst'); shake=0.7; screenFlash=0.45;
-    addShockwave(W/2,H/2,'#facc15',100);
-    addFloat(W/2,H/3,'🔥 FEVER TIME!','#fde047');
+    frenzyT=9.0;
+    sfx('frenzy_start'); shake=0.9; screenFlash=0.55;
+    addShockwave(W/2,H/2,'#ef4444',120);
+    addFloat(W/2,H/3,'🔥 BERSERK FRENZY!','#f43f5e');
     startBGM();
   }
   updateHUD();
@@ -839,7 +862,7 @@ function triggerGameOver() {
   let rank='🪨 흙두꺼비';
   if(score>=15000) rank='👑 신화급 묵신';
   else if(score>=9000) rank='⚡ 지리산 패왕';
-  else if(score>=4500) rank='🏅 하이퍼 생존자';
+  else if(score>=4500) rank='🏅 광란 생존자';
   else if(score>=2000) rank='🐸 묵 매니아';
 
   document.getElementById('oRank').textContent=`[${rank}]`;
@@ -849,7 +872,7 @@ function triggerGameOver() {
 }
 
 /* ================================================================
-   6. 렌더링 시스템
+   6. 렌더링
    ================================================================ */
 function drawLaser() {
   if(!laser)return;
@@ -890,7 +913,6 @@ function drawToad() {
   ctx.save();
   const tx=T.x,ty=T.y;
 
-  // 대시 잔상
   T.ghosts.forEach(g=>{
     ctx.fillStyle=`rgba(168,85,247,${g.a*0.5})`;
     ctx.beginPath();ctx.ellipse(g.x+T.w/2,g.y+T.h/2,T.w/2,T.h/2,0,0,6.28);ctx.fill();
@@ -900,34 +922,29 @@ function drawToad() {
     ctx.shadowColor='#c084fc'; ctx.shadowBlur=20;
   }
 
-  // 혓바닥
   T.tg.forEach(t=>{
     if(!t.a)return;
-    ctx.strokeStyle = burstT>0?'#f43f5e':feverT>0?'#fbbf24':'#f43f5e';
-    ctx.lineWidth = (burstT>0||feverT>0)?9:6.5; ctx.lineCap='round';
+    ctx.strokeStyle = frenzyT>0 ? '#f43f5e' : '#fbbf24';
+    ctx.lineWidth = frenzyT>0 ? 8.5 : 6.5; ctx.lineCap='round';
     ctx.beginPath();ctx.moveTo(tx+T.w/2,ty+12);ctx.lineTo(t.x,t.y);ctx.stroke();
-    ctx.fillStyle = burstT>0?'#fbcfe8':feverT>0?'#fef08a':'#fda4af';
-    ctx.beginPath();ctx.arc(t.x,t.y,(burstT>0||feverT>0)?10:7,0,6.28);ctx.fill();
+    ctx.fillStyle = frenzyT>0 ? '#fecdd3' : '#fef08a';
+    ctx.beginPath();ctx.arc(t.x,t.y,frenzyT>0?9:7,0,6.28);ctx.fill();
   });
 
-  // 몸
-  ctx.fillStyle = burstT>0?'#db2777':feverT>0?'#dc2626':debuffSlow>0?'#6b21a8':'#15803d';
+  ctx.fillStyle = frenzyT>0 ? '#dc2626' : debuffSlow>0 ? '#6b21a8' : '#15803d';
   ctx.beginPath();ctx.ellipse(tx+T.w/2,ty+T.h/2+2,T.w/2,T.h/2-2,0,0,6.28);ctx.fill();
 
-  // 배
-  ctx.fillStyle = (burstT>0||feverT>0)?'#fef08a':'#86efac';
+  ctx.fillStyle = frenzyT>0 ? '#fef08a' : '#86efac';
   ctx.beginPath();ctx.ellipse(tx+T.w/2,ty+T.h/2+6,T.w/3.2,T.h/3.5,0,0,6.28);ctx.fill();
 
-  // 털
-  ctx.fillStyle = (burstT>0||feverT>0)?'#831843':'#14532d';
+  ctx.fillStyle = frenzyT>0 ? '#7f1d1d' : '#14532d';
   [{x:10,y:12},{x:22,y:8},{x:34,y:10},{x:15,y:22},{x:30,y:20}].forEach((hr,idx)=>{
     ctx.beginPath();ctx.arc(tx+hr.x,ty+hr.y,2.5,0,6.28);ctx.fill();
     const sw=Math.sin(T.wig+idx)*2.5;
-    ctx.strokeStyle=(burstT>0||feverT>0)?'#fef08a':'#4ade80'; ctx.lineWidth=1.6;
+    ctx.strokeStyle = frenzyT>0 ? '#fef08a' : '#4ade80'; ctx.lineWidth=1.6;
     ctx.beginPath();ctx.moveTo(tx+hr.x,ty+hr.y);ctx.lineTo(tx+hr.x+sw,ty+hr.y-7);ctx.stroke();
   });
 
-  // 눈
   const lk=T.fd*2;
   [{x:14,y:6},{x:36,y:6}].forEach(e=>{
     ctx.fillStyle='#fef08a';ctx.beginPath();ctx.arc(tx+e.x,ty+e.y,6.5,0,6.28);ctx.fill();
@@ -955,15 +972,6 @@ function drawItems() {
       ctx.fillStyle='#0284c7';rr(ctx,-15,-13,30,26,6);ctx.fill();
       ctx.fillStyle='#bae6fd';rr(ctx,-12,-10,24,20,4);ctx.fill();
       ctx.fillStyle='#0369a1';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText('❄️',0,5);
-    } else if(it.type==='rainbow'){
-      // 🌈 하이퍼 버스트 묵 (무지개 글로우)
-      ctx.shadowColor='#ec4899';ctx.shadowBlur=20;
-      const grad=ctx.createLinearGradient(-15,-15,15,15);
-      grad.addColorStop(0,'#ef4444'); grad.addColorStop(0.33,'#f59e0b');
-      grad.addColorStop(0.66,'#10b981'); grad.addColorStop(1,'#3b82f6');
-      ctx.fillStyle=grad; rr(ctx,-16,-14,32,28,7); ctx.fill();
-      ctx.fillStyle='#fff'; rr(ctx,-12,-10,24,20,4); ctx.fill();
-      ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.fillText('🌈',0,5);
     } else if(it.type==='bomb'){
       ctx.shadowColor='#e2e8f0';ctx.shadowBlur=12;
       ctx.fillStyle='#1e293b';rr(ctx,-15,-13,30,26,6);ctx.fill();
@@ -1028,7 +1036,7 @@ document.getElementById('startBtn').addEventListener('click',resetGame);
 document.getElementById('restartBtn').addEventListener('click',resetGame);
 
 document.getElementById('copyLinkBtn').addEventListener('click',()=>{
-  const url = window.location.href;
+  const url = 'https://lee3q.github.io/toad-muk/';
   if(navigator.clipboard) {
     navigator.clipboard.writeText(url).then(()=>{
       toast.style.opacity='1';
