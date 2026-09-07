@@ -7,6 +7,44 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#050508">
 <title>털두꺼비의 묵 사냥: 틸트 에디션</title>
+<!--
+AUTO-DEV STATE
+PROJECT: 털두꺼비의 묵 사냥
+VERSION: 5
+CORE GOAL: 모바일과 PC에서 짧고 직관적으로 즐길 수 있으며, 반복 플레이할수록 조작감·공정성·전략성이 좋아지는 캐주얼 액션 게임
+LAST_CHANGE: 저스트닷지 보상 강화 - 성공 시 콤보 배수가 감소하지 않도록 comboTimer를 리프레시하고, 3연속 성공 시 "PERFECT CHAIN!" 보너스(+500점, 광란 게이지 +15) 부여. dodgeChain/dodgeChainTimer 상태 변수 추가, HUD의 콤보 배지에 연속 회피 카운트 표시. 실패(피격/시간초과)로 체인 초기화.
+LAST_REASON: 저스트닷지는 현재 시간 슬로우+광란 게이지+180점만 주는데, 콤보는 여전히 시간이 지나면 자연 감소함. 즉 회피에 집중하면 콤보 유지가 어려워 "회피 vs 사냥" 이분법이 강제됨. 회피가 곧 사냥 흐름의 일부가 되도록 콤보 유지·연속 보너스를 부여하면 리스크·리턴 구조가 훨씬 매력적으로 변함. NEXT_CANDIDATES 2번 채택.
+KNOWN_ISSUES:
+- iOS 13+에서 DeviceOrientation 권한 요청이 startBtn의 사용자 제스처 컨텍스트에서만 동작(재시작 버튼에서는 재요청 없음, 첫 허용 이후로는 문제 없음)
+- 광란 종료 시 startBGM 재호출로 짧은 사운드 겹침 가능성 (경미)
+- 첫 플레이 시 조작법이 인트로 모달을 닫으면 즉시 사라져, 첫 아이템 낙하 전까지 무엇을 해야 하는지 잊는 사용자 있을 수 있음
+NEXT_CANDIDATES:
+1. 첫 플레이 튜토리얼 힌트 오버레이 강화 (첫 아이템까지 화살표/텍스트 안내)
+2. 재시작 시 DeviceOrientation 권한 재요청 로직 (거부된 경우 안내)
+3. 낙뢰 워닝에 방향/폭 힌트를 시각적으로 더 명확히 (경고 시간 조정)
+4. 광란 종료 시 BGM 스무스 페이드 (재시작 겹침 제거)
+5. 게임오버 화면에 이번 판 통계(최대 콤보/저스트닷지 횟수) 표시
+REGRESSION_CHECK:
+- 시작: OK (startBtn → resetGame)
+- 모바일 입력: OK (deviceorientation, touchmove 백업)
+- PC 입력: OK (A/D, 화살표, 마우스 클릭)
+- 포획: OK (묵/파리/골드/얼음/폭탄 혓바닥·몸통 캐치)
+- 장애물: OK (가시돌 광란 무시, 낙뢰 워닝 후 발사)
+- 광란: OK (게이지 100% → 7초 3갈래, 종료 1.5초 전 경고)
+- 아슬아슬 회피: OK (52px 이내 dodgeCooldown 2s, NEW: 콤보 유지 + 체인 보너스)
+- 게임오버: OK (lives≤0 → overMo, 상수 테이블 랭크)
+- 재시작: OK (dodgeChain/dodgeChainTimer 포함 모든 상태 초기화)
+- 최고 기록: OK (localStorage toad_v2_hi, 손상 대비 parseInt 기본값)
+- 공유: OK (clipboard 실패 시 prompt/alert 폴백)
+- 일시정지/복귀: OK (visibilitychange/blur 자동 일시정지, 3초 카운트다운 재개)
+- HUD 반응형: OK (320/375/430/데스크톱 모두 한 줄 정렬)
+CHANGE_LOG:
+- v1: 초기 자율 개선 (기준 파일)
+- v2: 일시정지 시스템 + 자동 백그라운드 정지 + 카운트다운 재개
+- v3: 광란 모드 종료 1.5초 전 경고(시각·청각·HUD) 추가
+- v4: HUD 반응형 튜닝(clamp/미디어쿼리) + 랭크 테이블 리팩터 + 낙뢰 워닝 라벨 위치 개선
+- v5: 저스트닷지 콤보 유지 + 3연속 PERFECT CHAIN 보너스 추가
+-->
 <style>
   * { box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
   html, body {
@@ -21,49 +59,92 @@
   }
   canvas { flex:1; width:100%; display:block; touch-action:none; cursor:crosshair; }
 
-  /* 상단 HUD */
   #hud {
     position:absolute; top:0; left:0; right:0;
-    padding:10px 14px; display:flex; flex-direction:column; gap:5px;
+    padding: clamp(6px, 2vw, 10px) clamp(8px, 3vw, 14px);
+    display:flex; flex-direction:column;
+    gap: clamp(3px, 1vw, 5px);
     pointer-events:none; z-index:10;
   }
-  .hr { display:flex; justify-content:space-between; align-items:center; }
+  .hr {
+    display:flex; justify-content:space-between; align-items:center;
+    gap: clamp(2px, 1vw, 4px);
+    flex-wrap:nowrap;
+  }
   .b {
     background:rgba(11,35,29,0.88); backdrop-filter:blur(8px);
-    border:1px solid rgba(189,205,151,0.22); border-radius:10px;
-    padding:4px 10px; font-size:13px; font-weight:800; color:#f8fafc;
-    display:flex; align-items:center; gap:4px;
+    border:1px solid rgba(189,205,151,0.22); border-radius: clamp(7px, 2vw, 10px);
+    padding: clamp(2px, 1vw, 4px) clamp(5px, 2vw, 10px);
+    font-size: clamp(10px, 3vw, 13px); font-weight:800; color:#f8fafc;
+    display:flex; align-items:center; gap: clamp(2px, 1vw, 4px);
     box-shadow:0 3px 10px rgba(0,0,0,0.24);
+    white-space:nowrap;
+    flex-shrink:1; min-width:0;
+    transition: box-shadow 0.15s, border-color 0.15s;
   }
-  #sc { color:#f6c85f; font-size:15px; }
-  #lb { color:#f39a7a; letter-spacing:2px; }
-  #sb { pointer-events:auto; cursor:pointer; }
+  #sc { color:#f6c85f; font-size: clamp(11px, 3.4vw, 15px); flex-shrink:2; }
+  #lb {
+    color:#f39a7a; letter-spacing: clamp(0px, 0.5vw, 2px);
+    min-width: clamp(30px, 10vw, 45px);
+  }
+  #cb.chain {
+    border-color:#38bdf8;
+    box-shadow:0 0 12px rgba(56,189,248,0.65), 0 3px 10px rgba(0,0,0,0.24);
+  }
+  #sb, #pb {
+    pointer-events:auto; cursor:pointer;
+    padding: clamp(2px, 1vw, 4px) clamp(6px, 2vw, 10px);
+    flex-shrink:0;
+  }
   
   #modeBadge {
-    font-size:11px; font-weight:900; padding:3px 8px; border-radius:10px;
+    font-size: clamp(9px, 2.6vw, 11px); font-weight:900;
+    padding: clamp(2px, 1vw, 3px) clamp(5px, 2vw, 8px);
+    border-radius: clamp(7px, 2vw, 10px);
     background:rgba(113,172,121,0.16); color:#b9d78b; border:1px solid rgba(185,215,139,0.7);
     text-transform:uppercase;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space:nowrap;
+    flex-shrink:3; min-width:0; overflow:hidden; text-overflow:ellipsis;
+    max-width: 40vw;
   }
   #modeBadge.frenzy {
     background:#c6533f;
     color:#fff7e0; border-color:#f28b6e;
     animation:modeBlink 0.3s infinite alternate;
   }
+  #modeBadge.frenzy.ending {
+    background:#7a1e12;
+    color:#ffe0d0; border-color:#ff6b4a;
+    animation:frenzyEndBlink 0.18s infinite alternate;
+  }
   @keyframes modeBlink { from{transform:scale(0.95)} to{transform:scale(1.05)} }
+  @keyframes frenzyEndBlink {
+    from { transform:scale(0.9); box-shadow:0 0 0 rgba(255,107,74,0); }
+    to   { transform:scale(1.12); box-shadow:0 0 14px rgba(255,107,74,0.8); }
+  }
 
-  #fbc { width:100%; height:8px; background:rgba(4,18,15,0.7); border-radius:4px; overflow:hidden; border:1px solid rgba(185,215,139,0.18); }
+  #fbc {
+    width:100%; height: clamp(6px, 1.5vw, 8px);
+    background:rgba(4,18,15,0.7); border-radius:4px; overflow:hidden;
+    border:1px solid rgba(185,215,139,0.18);
+  }
   #fb { width:0%; height:100%; background:linear-gradient(90deg,#78b8a4,#f6c85f,#e66e4c); transition:width 0.1s ease-out; }
 
-  /* 기울기 안내 인디케이터 (화면 하단 살짝 표시) */
+  @media (max-width: 360px) {
+    #sc::before { content:""; }
+    .b { letter-spacing:0; }
+  }
+
   #tiltGuide {
-    position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
-    font-size:11px; font-weight:700; color:rgba(185,215,139,0.64);
+    position:absolute; bottom: clamp(10px, 3vw, 14px); left:50%; transform:translateX(-50%);
+    font-size: clamp(10px, 2.8vw, 11px); font-weight:700; color:rgba(185,215,139,0.64);
     pointer-events:none; z-index:15; display:flex; align-items:center; gap:6px;
+    white-space:nowrap; padding: 0 8px;
   }
   .tilt-arrow { animation:tiltSway 1.5s infinite ease-in-out; }
   @keyframes tiltSway { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-15deg)} 75%{transform:rotate(15deg)} }
 
-  /* 모달 */
   .mo {
     position:absolute; inset:0; background:rgba(5,18,15,0.95); backdrop-filter:blur(12px);
     display:flex; flex-direction:column; justify-content:center; align-items:center;
@@ -109,6 +190,59 @@
     font-size:13px; font-weight:700; z-index:100; pointer-events:none;
     opacity:0; transition:opacity 0.25s;
   }
+
+  #pauseMo {
+    position:absolute; inset:0; background:rgba(5,18,15,0.82); backdrop-filter:blur(6px);
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    z-index:45; padding:24px; text-align:center;
+  }
+  #pauseMo h2 {
+    font-size:32px; font-weight:900; color:#d7e7a5;
+    margin-bottom:8px; text-shadow:0 0 20px rgba(185,215,139,0.4);
+    letter-spacing:2px;
+  }
+  #pauseMo .psub { font-size:13px; color:#a6b9a5; margin-bottom:20px; }
+  #resumeBtn {
+    width:80%; max-width:230px; padding:14px 0;
+    background:#5f9f72; border:none; border-radius:10px;
+    color:#fff; font-size:16px; font-weight:900;
+    box-shadow:0 8px 24px rgba(95,159,114,0.28); cursor:pointer;
+  }
+  #resumeBtn:active { transform:scale(0.96); }
+
+  #countMo {
+    position:absolute; inset:0; background:rgba(5,18,15,0.55);
+    display:flex; justify-content:center; align-items:center;
+    z-index:46; pointer-events:none;
+  }
+  #countNum {
+    font-size:120px; font-weight:900; color:#f6c85f;
+    text-shadow:0 0 40px rgba(246,200,95,0.7);
+    animation:countPulse 1s ease-out;
+  }
+  @keyframes countPulse {
+    0% { transform:scale(2); opacity:0; }
+    30% { transform:scale(1); opacity:1; }
+    100% { transform:scale(0.8); opacity:0; }
+  }
+
+  #frenzyEndWarn {
+    position:absolute;
+    top: clamp(60px, 14vw, 78px);
+    left:50%; transform:translateX(-50%);
+    background:rgba(122,30,18,0.92); border:1.5px solid #ff6b4a;
+    color:#fff2e8; padding: clamp(4px, 1.5vw, 6px) clamp(10px, 3vw, 14px);
+    border-radius:20px;
+    font-size: clamp(11px, 3vw, 13px); font-weight:900; letter-spacing:1px;
+    z-index:20; pointer-events:none;
+    box-shadow:0 0 20px rgba(255,107,74,0.55);
+    animation:warnPulse 0.35s infinite alternate;
+    white-space:nowrap;
+  }
+  @keyframes warnPulse {
+    from { opacity:0.7; transform:translateX(-50%) scale(0.96); }
+    to   { opacity:1;   transform:translateX(-50%) scale(1.06); }
+  }
 </style>
 </head>
 <body>
@@ -117,9 +251,10 @@
   <div id="hud">
     <div class="hr">
       <div class="b" id="sc">SCORE: 0</div>
-      <div id="modeBadge">일반 모드</div>
+      <div id="modeBadge">일반</div>
       <div class="b" id="cb" style="color:#38bdf8;">x1</div>
       <div class="b" id="lb">♥♥♥</div>
+      <div class="b" id="pb" title="일시정지">⏸</div>
       <div class="b" id="sb">🔊</div>
     </div>
     <div id="fbc"><div id="fb"></div></div>
@@ -127,11 +262,12 @@
 
   <canvas id="c"></canvas>
 
+  <div id="frenzyEndWarn" class="hidden">⚠ 광란 곧 종료!</div>
+
   <div id="tiltGuide">
     <span class="tilt-arrow">📱</span> 스마트폰을 좌우로 기울여 이동하세요
   </div>
 
-  <!-- 인트로 모달 -->
   <div class="mo" id="titleMo">
     <div style="font-size:50px;margin-bottom:8px;">🐸</div>
     <h1>털두꺼비의 묵 사냥</h1>
@@ -139,14 +275,14 @@
     <div class="gbox">
       <div class="gi"><b>기울이기</b>: 두꺼비를 좌우로 움직여 가시돌과 낙뢰를 피하세요.</div>
       <div class="gi"><b>탭</b>: 떨어지는 묵이나 파리를 직접 눌러 혓바닥을 뻗습니다.</div>
-      <div class="gi"><b>광란</b>: 짧은 시간 3갈래 혓바닥을 씁니다. 한 번 쓸 때마다 충전이 필요하고, <b>가시돌은 절대 못 막습니다.</b></div>
-      <div class="gi"><b>아슬아슬 회피</b>: 가시돌을 가까스로 지나치면 시간이 잠시 느려지고 광란 게이지가 찹니다.</div>
+      <div class="gi"><b>광란</b>: 짧은 시간 3갈래 혓바닥을 씁니다. 한 번 쓸 때마다 충전이 필요하고, <b>가시돌은 절대 못 막습니다.</b> 종료 직전엔 경고가 뜹니다.</div>
+      <div class="gi"><b>아슬아슬 회피</b>: 가시돌을 가까스로 지나치면 시간이 느려지고 광란 게이지·콤보가 <b>유지</b>됩니다. 3연속 성공 시 <b>PERFECT CHAIN!</b> 보너스.</div>
+      <div class="gi"><b>일시정지</b>: 우측 상단 ⏸ 버튼 또는 Space/ESC 키. 화면을 벗어나면 자동으로 멈춥니다.</div>
       <div class="gi"><b>PC</b>: 마우스 클릭, `A`/`D` 또는 `←`/`→` 이동</div>
     </div>
     <button class="pbtn" id="startBtn">시작하기</button>
   </div>
 
-  <!-- 게임오버 모달 -->
   <div class="mo hidden" id="overMo">
     <h1 style="color:#ef4444;">GAME OVER</h1>
     <div id="oRank" style="font-size:16px;font-weight:800;color:#facc15;margin:6px 0 14px 0;"></div>
@@ -159,6 +295,15 @@
     <button class="link-btn" id="copyLinkBtn">🔗 친구에게 게임 링크 복사</button>
   </div>
 
+  <div id="pauseMo" class="hidden">
+    <div style="font-size:48px;margin-bottom:6px;">⏸</div>
+    <h2>PAUSED</h2>
+    <div class="psub">잠시 멈췄어요. 준비되면 다시 시작하세요.</div>
+    <button id="resumeBtn">▶ 이어서 하기</button>
+  </div>
+
+  <div id="countMo" class="hidden"><div id="countNum">3</div></div>
+
   <div class="toast" id="toast">링크가 복사되었습니다!</div>
 </div>
 
@@ -170,7 +315,12 @@ const cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
 const scEl=document.getElementById('sc'), cbEl=document.getElementById('cb'),
       lbEl=document.getElementById('lb'), modeBadge=document.getElementById('modeBadge'),
       fbEl=document.getElementById('fb'), sbEl=document.getElementById('sb'),
-      toast=document.getElementById('toast');
+      pbEl=document.getElementById('pb'),
+      toast=document.getElementById('toast'),
+      frenzyEndWarnEl=document.getElementById('frenzyEndWarn');
+const pauseMo=document.getElementById('pauseMo'),
+      countMo=document.getElementById('countMo'),
+      countNum=document.getElementById('countNum');
 
 let W=400, H=640;
 function resize() {
@@ -185,14 +335,18 @@ window.addEventListener('resize',resize); resize();
    ================================================================ */
 let ac=null, sOn=true, bgmT=null, bgmI=0;
 function getAC() {
-  if(!ac) ac=new (window.AudioContext||window.webkitAudioContext)();
-  if(ac.state==='suspended') ac.resume();
+  if(!ac) {
+    try { ac=new (window.AudioContext||window.webkitAudioContext)(); }
+    catch(e) { return null; }
+  }
+  if(ac && ac.state==='suspended') ac.resume();
   return ac;
 }
 function sfx(tp) {
   if(!sOn) return;
   try {
-    const a=getAC(), t=a.currentTime;
+    const a=getAC(); if(!a) return;
+    const t=a.currentTime;
     if(tp==='tongue') {
       const o=a.createOscillator(), g=a.createGain();
       o.connect(g); g.connect(a.destination);
@@ -223,6 +377,18 @@ function sfx(tp) {
       g.gain.setValueAtTime(0.25,t); g.gain.linearRampToValueAtTime(0.01,t+0.25);
       o.start(t); o.stop(t+0.25);
       if(navigator.vibrate) navigator.vibrate([35, 25, 50]);
+    } else if(tp==='perfect_chain') {
+      // 화려한 상승 아르페지오 (저스트닷지 3연속 보상)
+      const notes = [523.25, 659.25, 783.99, 1046.5]; // C E G C
+      notes.forEach((f, idx) => {
+        const o=a.createOscillator(), g=a.createGain();
+        o.connect(g); g.connect(a.destination);
+        o.type='triangle'; o.frequency.setValueAtTime(f, t + idx*0.06);
+        g.gain.setValueAtTime(0.22, t + idx*0.06);
+        g.gain.linearRampToValueAtTime(0.001, t + idx*0.06 + 0.22);
+        o.start(t + idx*0.06); o.stop(t + idx*0.06 + 0.22);
+      });
+      if(navigator.vibrate) navigator.vibrate([40, 30, 40, 30, 80]);
     } else if(tp==='frenzy_start') {
       const o=a.createOscillator(), g=a.createGain();
       o.connect(g); g.connect(a.destination);
@@ -231,6 +397,14 @@ function sfx(tp) {
       g.gain.setValueAtTime(0.3,t); g.gain.linearRampToValueAtTime(0.01,t+0.35);
       o.start(t); o.stop(t+0.35);
       if(navigator.vibrate) navigator.vibrate([70, 50, 140]);
+    } else if(tp==='frenzy_warn') {
+      const o=a.createOscillator(), g=a.createGain();
+      o.connect(g); g.connect(a.destination);
+      o.type='square'; o.frequency.setValueAtTime(1400,t);
+      o.frequency.setValueAtTime(900,t+0.06);
+      g.gain.setValueAtTime(0.16,t); g.gain.linearRampToValueAtTime(0.01,t+0.12);
+      o.start(t); o.stop(t+0.12);
+      if(navigator.vibrate) navigator.vibrate(30);
     } else if(tp==='bomb') {
       const o=a.createOscillator(), g=a.createGain();
       o.connect(g); g.connect(a.destination);
@@ -254,6 +428,12 @@ function sfx(tp) {
       o.frequency.linearRampToValueAtTime(180,t+0.3);
       g.gain.setValueAtTime(0.25,t); g.gain.linearRampToValueAtTime(0.01,t+0.3);
       o.start(t); o.stop(t+0.3);
+    } else if(tp==='count') {
+      const o=a.createOscillator(), g=a.createGain();
+      o.connect(g); g.connect(a.destination);
+      o.type='sine'; o.frequency.setValueAtTime(660,t);
+      g.gain.setValueAtTime(0.15,t); g.gain.linearRampToValueAtTime(0.01,t+0.15);
+      o.start(t); o.stop(t+0.15);
     }
   } catch(e){}
 }
@@ -262,7 +442,8 @@ const bassN=[110,110,130.81,146.83,110,110,164.81,146.83];
 function stepBGM() {
   if(!sOn||state!=='play') return;
   try {
-    const a=getAC(),t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+    const a=getAC(); if(!a) return;
+    const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
     o.connect(g);g.connect(a.destination);
     const isFrenzy = frenzyT > 0;
     o.type = isFrenzy ? 'sawtooth' : 'triangle';
@@ -285,17 +466,39 @@ sbEl.addEventListener('click',()=>{
    ================================================================ */
 let state='title';
 let score=0, lives=3, combo=1, comboTimer=0, gameTime=0;
-let hi=parseInt(localStorage.getItem('toad_v2_hi')||'0',10);
+let hi=0;
+try { hi=parseInt(localStorage.getItem('toad_v2_hi')||'0',10)||0; } catch(e) { hi=0; }
 let shake=0, screenFlash=0, slowMo=0, debuffSlow=0;
 let dodgeCooldown=0;
 
-let feverM=0;        // 0 ~ 100 광란 게이지
-let frenzyT=0;       // 🔥 광란 모드 지속 타이머 (7초)
-let frenzyShots=0;   // 광란 혓바닥 volley 횟수 (연타 방지)
+// v5: 저스트닷지 체인 시스템
+let dodgeChain=0;         // 현재 연속 저스트닷지 카운트
+let dodgeChainTimer=0;    // 체인 유지 시간 (초). 0 되면 체인 리셋
+const DODGE_CHAIN_WINDOW=4.0; // 다음 회피까지 허용되는 시간
+const PERFECT_CHAIN_THRESHOLD=3; // 이 수 이상 연속 시 PERFECT CHAIN
+
+let feverM=0;
+let frenzyT=0;
+let frenzyShots=0;
 let frenzyShotClock=0;
+const FRENZY_WARN_START=1.5;
+let frenzyWarnBeepClock=0;
 let laser=null, laserClock=0;
 
-// 두꺼비 (점프 제거: 바닥 밀착 & 좌우 민첩 이동)
+let countdownVal=0, countdownTimer=null;
+
+const RANK_TABLE = [
+  { min: 15000, label: '👑 신화급 묵신' },
+  { min:  9000, label: '⚡ 지리산 패왕' },
+  { min:  4500, label: '🏅 틸트 마스터' },
+  { min:  2000, label: '🐸 묵 매니아'   },
+  { min:     0, label: '🪨 흙두꺼비'    }
+];
+function getRank(sc) {
+  for (const r of RANK_TABLE) if (sc >= r.min) return r.label;
+  return RANK_TABLE[RANK_TABLE.length-1].label;
+}
+
 const T={
   x:180, y:480, w:52, h:40,
   vx:0, targetVx:0, fd:1, wig:0,
@@ -311,15 +514,15 @@ const T={
 let items=[], parts=[], floats=[], shockwaves=[], spawnClk=0;
 
 /* ================================================================
-   3. 📱 틸트(기울이기) 센서 조향 & 스마트 터치 사격
+   3. 틸트 & 입력
    ================================================================ */
-let tiltGamma = 0; // 좌우 기울기 각도
+let tiltGamma = 0;
 let tiltActive = false;
 
 function onOrientation(e) {
   if (e.gamma !== null && e.gamma !== undefined) {
     tiltActive = true;
-    tiltGamma = e.gamma; // 좌: 음수, 우: 양수 (degrees)
+    tiltGamma = e.gamma;
   }
 }
 
@@ -331,20 +534,17 @@ function requestTiltPermission() {
           window.addEventListener('deviceorientation', onOrientation, true);
         }
       })
-      .catch(console.error);
+      .catch(()=>{});
   } else {
     window.addEventListener('deviceorientation', onOrientation, true);
   }
 }
 
-// 스마트 탭 사격: 탭한 위치 주변의 묵/아이템으로 자석 스냅!
 function findBestTapItem(tx, ty) {
   let best = null, bestDist = Infinity;
   items.forEach(it => {
-    // 가시돌은 어떤 모드에서도 혓바닥으로 튕겨낼 수 없다. 회피해야 하는 대상이다.
     if (it.type === 'spike') return;
     const d = Math.hypot(it.x - tx, it.y - ty);
-    // 터치 지점 75px 이내에 묵이 있으면 해당 묵으로 정확히 유도 스냅
     if (d < 75 && d < bestDist) {
       bestDist = d;
       best = it;
@@ -354,7 +554,7 @@ function findBestTapItem(tx, ty) {
 }
 
 function shootTongueAt(tx, ty) {
-  // 광란은 강력하지만 탄약과 발사 간격이 있다. 무지성 연타로 전장을 지울 수 없다.
+  if (state !== 'play') return;
   if (frenzyT > 0) {
     if (frenzyShots <= 0 || T.tg.some(t => t.a)) {
       addFloat(T.x + T.w / 2, T.y - 16, frenzyShots <= 0 ? '충전 중…' : '혀를 거두는 중', '#f6c85f');
@@ -362,7 +562,6 @@ function shootTongueAt(tx, ty) {
     }
     frenzyShots--;
   }
-  // 터치한 위치에 묵이 있으면 위치 스냅
   const targetItem = findBestTapItem(tx, ty);
   let aimX = targetItem ? targetItem.x : tx;
   let aimY = targetItem ? targetItem.y : ty;
@@ -383,7 +582,6 @@ function shootTongueAt(tx, ty) {
   sfx('tongue');
 }
 
-// 캔버스 터치 / 클릭 이벤트
 cvs.addEventListener('touchstart', e => {
   if (state !== 'play') return;
   for (let i = 0; i < e.touches.length; i++) {
@@ -401,29 +599,92 @@ cvs.addEventListener('mousedown', e => {
   shootTongueAt(e.clientX - rect.left, e.clientY - rect.top);
 });
 
-// PC 키보드 & 터치 드래그 보조 조향
 const keyInp = { l: false, r: false };
 window.addEventListener('keydown', e => {
   if (['ArrowLeft', 'a', 'A'].includes(e.key)) keyInp.l = true;
   if (['ArrowRight', 'd', 'D'].includes(e.key)) keyInp.r = true;
+  if (e.key === ' ' || e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+    if (state === 'play') { pauseGame(); e.preventDefault(); }
+    else if (state === 'paused') { resumeGame(); e.preventDefault(); }
+  }
 });
 window.addEventListener('keyup', e => {
   if (['ArrowLeft', 'a', 'A'].includes(e.key)) keyInp.l = false;
   if (['ArrowRight', 'd', 'D'].includes(e.key)) keyInp.r = false;
 });
 
-// 터치 드래그로도 두꺼비 조향 가능 (기울이기 미지원 환경 대비)
 cvs.addEventListener('touchmove', e => {
   if (state !== 'play') return;
   const t = e.touches[0];
   const rect = cvs.getBoundingClientRect();
   const tx = t.clientX - rect.left;
-  // 손가락 위치 쪽으로 부드럽게 목표 이동
   if (!tiltActive) {
     const diff = tx - (T.x + T.w/2);
     T.targetVx = Math.max(-1, Math.min(1, diff / 40));
   }
 }, { passive: true });
+
+/* ================================================================
+   3.5. 일시정지 시스템
+   ================================================================ */
+function pauseGame() {
+  if (state !== 'play') return;
+  state = 'paused';
+  stopBGM();
+  keyInp.l = false; keyInp.r = false;
+  T.targetVx = 0; T.vx = 0;
+  pauseMo.classList.remove('hidden');
+  pbEl.textContent = '▶';
+}
+
+function resumeGame() {
+  if (state !== 'paused') return;
+  pauseMo.classList.add('hidden');
+  startCountdown();
+}
+
+function startCountdown() {
+  state = 'countdown';
+  countdownVal = 3;
+  countMo.classList.remove('hidden');
+  showCountdownFrame();
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    countdownVal--;
+    if (countdownVal > 0) {
+      showCountdownFrame();
+    } else {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+      countMo.classList.add('hidden');
+      state = 'play';
+      pbEl.textContent = '⏸';
+      lastT = performance.now();
+      startBGM();
+    }
+  }, 800);
+}
+
+function showCountdownFrame() {
+  countNum.textContent = countdownVal;
+  countNum.style.animation = 'none';
+  void countNum.offsetWidth;
+  countNum.style.animation = 'countPulse 0.8s ease-out';
+  sfx('count');
+}
+
+pbEl.addEventListener('click', () => {
+  if (state === 'play') pauseGame();
+  else if (state === 'paused') resumeGame();
+});
+document.getElementById('resumeBtn').addEventListener('click', resumeGame);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'play') pauseGame();
+});
+window.addEventListener('blur', () => {
+  if (state === 'play') pauseGame();
+});
 
 /* ================================================================
    4. 시각 효과 & 파티클
@@ -432,32 +693,61 @@ function addFloat(x,y,text,color) { floats.push({x,y,text,color,life:1.2,vy:-2.6
 function addShockwave(x,y,color,maxR=55) { shockwaves.push({x,y,r:6,maxR,color,life:1.0}); }
 
 /* ================================================================
-   5. 게임 루프 & 밸런스
+   5. 게임 루프
    ================================================================ */
 function resetGame() {
   score=0; lives=3; combo=1; comboTimer=0; gameTime=0;
-  feverM=0; frenzyT=0; frenzyShots=0; frenzyShotClock=0; slowMo=0; debuffSlow=0; dodgeCooldown=0;
+  feverM=0; frenzyT=0; frenzyShots=0; frenzyShotClock=0;
+  frenzyWarnBeepClock=0;
+  slowMo=0; debuffSlow=0; dodgeCooldown=0;
+  dodgeChain=0; dodgeChainTimer=0;
   laser=null; laserClock=0; items=[]; parts=[]; floats=[]; shockwaves=[];
   T.x=W/2-T.w/2; T.y=H-120; T.vx=0; T.targetVx=0;
   T.tg.forEach(t=>t.a=false);
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer=null; }
+  countMo.classList.add('hidden');
+  pauseMo.classList.add('hidden');
+  frenzyEndWarnEl.classList.add('hidden');
+  pbEl.textContent = '⏸';
   state='play';
   document.getElementById('titleMo').classList.add('hidden');
   document.getElementById('overMo').classList.add('hidden');
   updateHUD(); getAC(); startBGM();
+  lastT = performance.now();
+}
+
+function modeBadgeText() {
+  const narrow = W < 380;
+  if(frenzyT>0) {
+    return narrow
+      ? `광란 ${Math.ceil(frenzyT)}s·${frenzyShots}`
+      : `광란 ${Math.ceil(frenzyT)}초 · 혀 ${frenzyShots}`;
+  }
+  return narrow ? '일반' : '일반 모드';
 }
 
 function updateHUD() {
-  scEl.textContent=`SCORE: ${score}`;
-  cbEl.textContent=`x${combo}`;
-  cbEl.style.color=combo>=10?'#facc15':combo>=5?'#fb923c':'#38bdf8';
+  scEl.textContent = (W < 380 ? '' : 'SCORE: ') + score;
+
+  // 콤보 배지에 저스트닷지 체인 카운트 부가 표시
+  const chainSuffix = dodgeChain >= 2 ? ` ⚡${dodgeChain}` : '';
+  cbEl.textContent = `x${combo}${chainSuffix}`;
+  cbEl.style.color = combo>=10 ? '#facc15' : combo>=5 ? '#fb923c' : '#38bdf8';
+  if (dodgeChain >= 2) cbEl.classList.add('chain');
+  else cbEl.classList.remove('chain');
+
   lbEl.textContent='♥'.repeat(Math.max(0,lives));
   fbEl.style.width=`${feverM}%`;
 
   if(frenzyT>0) {
-    modeBadge.textContent=`광란 ${Math.ceil(frenzyT)}초 · 혀 ${frenzyShots}`;
-    modeBadge.className='frenzy';
+    modeBadge.textContent = modeBadgeText();
+    if (frenzyT <= FRENZY_WARN_START) {
+      modeBadge.className='frenzy ending';
+    } else {
+      modeBadge.className='frenzy';
+    }
   } else {
-    modeBadge.textContent='일반 모드';
+    modeBadge.textContent = modeBadgeText();
     modeBadge.className='';
   }
 }
@@ -475,15 +765,14 @@ function loop(now) {
   let dt=Math.min((now-lastT)/1000,0.05);
   lastT=now;
 
-  if(slowMo>0){ slowMo-=dt; dt*=0.40; }
+  if(slowMo>0 && state==='play'){ slowMo-=dt; dt*=0.40; }
 
   ctx.save();
-  if(shake>0) {
+  if(shake>0 && state==='play') {
     ctx.translate((Math.random()-0.5)*shake*14,(Math.random()-0.5)*shake*14);
     shake=Math.max(0,shake-dt*4);
   }
 
-  // 배경
   const bg=ctx.createLinearGradient(0,0,0,H);
   if(frenzyT>0) {
     bg.addColorStop(0,'#3a1710'); bg.addColorStop(0.58,'#1f1712'); bg.addColorStop(1,'#101c18');
@@ -492,7 +781,6 @@ function loop(now) {
   }
   ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
 
-  // 물결과 수초: 단순한 기하 패턴으로 화면에 깊이를 준다.
   ctx.save();
   ctx.globalAlpha = frenzyT > 0 ? 0.14 : 0.2;
   ctx.strokeStyle = frenzyT > 0 ? '#f6c85f' : '#8ac6a2';
@@ -502,7 +790,6 @@ function loop(now) {
   }
   ctx.restore();
 
-  // 바닥
   const gY=H-75;
   ctx.fillStyle = frenzyT>0 ? '#6b2b20' : '#123b30'; ctx.fillRect(0,gY,W,75);
   ctx.fillStyle = frenzyT>0 ? '#e77958' : '#8ac6a2'; ctx.fillRect(0,gY,W,4);
@@ -516,13 +803,44 @@ function loop(now) {
   drawParts(dt);
   drawFloats(dt);
 
-  if(screenFlash>0) {
+  if(screenFlash>0 && state==='play') {
     ctx.fillStyle=`rgba(255,255,255,${screenFlash*0.35})`;
     ctx.fillRect(0,0,W,H);
     screenFlash=Math.max(0,screenFlash-dt*5);
   }
 
   ctx.restore();
+}
+
+// v5: 저스트닷지 체인 처리
+function handleJustDodge(cx, cy) {
+  dodgeCooldown = 2.0;
+  slowMo = 0.35;
+  score += 180;
+  shake = 0.4;
+  sfx('dodge');
+  addShockwave(cx, cy, '#38bdf8', 65);
+
+  // 체인 증가 및 콤보 유지 (comboTimer 리프레시)
+  dodgeChain++;
+  dodgeChainTimer = DODGE_CHAIN_WINDOW;
+  comboTimer = Math.max(comboTimer, 2.6); // 콤보가 자연 감소하지 않도록 유지
+
+  // PERFECT CHAIN: 3연속 이상 성공 시 큰 보상
+  if (dodgeChain >= PERFECT_CHAIN_THRESHOLD) {
+    score += 500;
+    addFever(15);
+    screenFlash = 0.4;
+    shake = 0.7;
+    sfx('perfect_chain');
+    addShockwave(cx, cy, '#facc15', 110);
+    addFloat(cx, cy - 45, `🌟 PERFECT CHAIN x${dodgeChain}!`, '#facc15');
+    addFloat(cx, cy - 25, '+500 · 광란 게이지', '#fde047');
+    // 체인 지속: 연속 성공 카운트는 유지, 보너스는 매 성공마다 재지급
+  } else {
+    addFever(20);
+    addFloat(cx, cy - 25, `⚡ JUST DODGE! (${dodgeChain})`, '#38bdf8');
+  }
 }
 
 function update(dt,gY) {
@@ -536,11 +854,20 @@ function update(dt,gY) {
   if(debuffSlow>0) { debuffSlow-=dt; if(debuffSlow<=0) updateHUD(); }
   if(dodgeCooldown>0) dodgeCooldown-=dt;
 
+  // 저스트닷지 체인 만료 처리
+  if (dodgeChainTimer > 0) {
+    dodgeChainTimer -= dt;
+    if (dodgeChainTimer <= 0 && dodgeChain > 0) {
+      dodgeChain = 0;
+      updateHUD();
+    }
+  }
+
   if(comboTimer>0) comboTimer-=dt;
   else if(combo>1) { combo=Math.max(1,combo-1); updateHUD(); comboTimer=1.8; }
 
-  // 광란 모드 타이머
   if(frenzyT>0) {
+    const prevFrenzyT = frenzyT;
     frenzyT-=dt;
     frenzyShotClock += dt;
     if (frenzyShotClock >= 0.9) {
@@ -548,18 +875,36 @@ function update(dt,gY) {
       frenzyShots = Math.min(3, frenzyShots + 1);
     }
     feverM=(frenzyT/7.0)*100;
+
+    if (frenzyT > 0 && frenzyT <= FRENZY_WARN_START) {
+      if (frenzyEndWarnEl.classList.contains('hidden')) {
+        frenzyEndWarnEl.classList.remove('hidden');
+      }
+      frenzyWarnBeepClock -= dt;
+      if (frenzyWarnBeepClock <= 0) {
+        sfx('frenzy_warn');
+        const ratio = Math.max(0, frenzyT / FRENZY_WARN_START);
+        frenzyWarnBeepClock = 0.22 + ratio * 0.28;
+      }
+    }
+
     if(frenzyT<=0) {
-      frenzyT=0; feverM=0; startBGM(); updateHUD();
+      frenzyT=0; feverM=0;
+      frenzyEndWarnEl.classList.add('hidden');
+      frenzyWarnBeepClock=0;
+      startBGM(); updateHUD();
+    } else if (prevFrenzyT > FRENZY_WARN_START && frenzyT <= FRENZY_WARN_START) {
+      updateHUD();
     }
   } else if (feverM > 0) {
-    // 게이지를 쌓아두고 멈춰 있으면 조금씩 식는다.
     feverM = Math.max(0, feverM - dt * 1.1);
+    if (!frenzyEndWarnEl.classList.contains('hidden')) {
+      frenzyEndWarnEl.classList.add('hidden');
+    }
   }
 
-  // 📱 틸트(기울이기) 조향 물리 연산
   let normalizedTilt = 0;
   if (tiltActive) {
-    // -20도 ~ +20도 범위 정규화 (-1 ~ 1), 데드존 2도
     if (Math.abs(tiltGamma) > 2.0) {
       normalizedTilt = Math.max(-1, Math.min(1, tiltGamma / 20.0));
     }
@@ -573,18 +918,16 @@ function update(dt,gY) {
   let maxMoveSpeed = frenzyT > 0 ? 540 : 420;
   if (debuffSlow > 0) maxMoveSpeed *= 0.45;
 
-  // 부드러운 관성 가속도
   const desiredVx = normalizedTilt * maxMoveSpeed;
   T.vx += (desiredVx - T.vx) * 0.25;
 
   T.x += T.vx * dt;
   if(T.x < 10) { T.x = 10; T.vx = 0; }
   if(T.x > W - T.w - 10) { T.x = W - T.w - 10; T.vx = 0; }
-  T.y = gY - T.h; // 점프 없이 바닥 고정
+  T.y = gY - T.h;
 
   T.wig += Math.abs(T.vx) * 0.05 + dt * 6;
 
-  // 혓바닥 초고속 발사
   const sx = T.x + T.w/2, sy = T.y + 12;
   T.tg.forEach(t => {
     if(!t.a) return;
@@ -602,7 +945,6 @@ function update(dt,gY) {
     t.y = sy + (dy/d)*t.l;
   });
 
-  // 낙뢰
   laserClock += dt;
   const laserInterval = frenzyT>0 ? Math.max(2.0, 3.4 - tDiff*0.055) : Math.max(2.5, 5.5 - tDiff*0.07);
   if(!laser && gameTime > 6.0 && laserClock > laserInterval) {
@@ -628,7 +970,6 @@ function update(dt,gY) {
     }
   }
 
-  // 스폰
   spawnClk+=dt;
   let spRate = isWarmup ? 0.72 : Math.max(0.15, 0.68 - tDiff*0.026 - score*0.00009);
     if(frenzyT>0) spRate = 0.34;
@@ -664,7 +1005,6 @@ function update(dt,gY) {
     }
   }
 
-  // 충돌 판정
   const cx=T.x+T.w/2, cy=T.y+T.h/2;
   for(let i=items.length-1;i>=0;i--) {
     const it=items[i];
@@ -682,22 +1022,13 @@ function update(dt,gY) {
       }
     }
 
-    // ⚡ 저스트 닷지 판정 (기울여서 가시돌을 아슬아슬하게 피했을 때!)
     if(it.type==='spike' && !it.dodged && dodgeCooldown<=0 && Math.hypot(it.x-cx, it.y-cy) < 52) {
       it.dodged = true;
-      dodgeCooldown = 2.0;
-      slowMo = 0.35;
-      addFever(20);
-      score += 180;
-      shake = 0.4;
-      sfx('dodge');
-      addShockwave(cx, cy, '#38bdf8', 65);
-      addFloat(cx, cy-25, '⚡ JUST DODGE!', '#38bdf8');
+      handleJustDodge(cx, cy);
       updateHUD();
     }
     if (it.type === 'spike' && it.dodged) continue;
 
-    // 혓바닥 히트. 가시돌은 반드시 몸으로 피해야 한다.
     if (it.type !== 'spike') {
       let caught=false;
       for(const t of T.tg){
@@ -708,7 +1039,6 @@ function update(dt,gY) {
       if(caught){ handleCatch(it,i,'tongue'); continue; }
     }
 
-    // 몸통 충돌
     if(Math.hypot(it.x-cx,it.y-cy)<it.r+18) {
       handleBodyHit(it,i);
     }
@@ -717,7 +1047,7 @@ function update(dt,gY) {
 }
 
 function handleCatch(it,i,method) {
-  const bonus = 1.3; // 터치 조준 캐치 보너스
+  const bonus = 1.3;
   addShockwave(it.x,it.y,'#facc15',50);
   sfx('crunch');
 
@@ -785,6 +1115,8 @@ function addFever(amt) {
     frenzyT=7.0;
     frenzyShots=3;
     frenzyShotClock=0;
+    frenzyWarnBeepClock=0;
+    frenzyEndWarnEl.classList.add('hidden');
     sfx('frenzy_start'); shake=0.9; screenFlash=0.55;
     addShockwave(W/2,H/2,'#ef4444',120);
     addFloat(W/2,H/3,'광란 시작','#f6c85f');
@@ -796,6 +1128,8 @@ function addFever(amt) {
 function takeDamage() {
   lives--; shake=1.2; screenFlash=0.6;
   combo=Math.max(1,Math.floor(combo/2)); comboTimer=0;
+  // v5: 피격 시 저스트닷지 체인 리셋
+  dodgeChain=0; dodgeChainTimer=0;
   sfx('hit');
   addShockwave(T.x+T.w/2,T.y+T.h/2,'#ef4444',70);
   addParts(T.x+T.w/2,T.y+T.h/2,'#ef4444',24,2.0);
@@ -805,15 +1139,15 @@ function takeDamage() {
 
 function triggerGameOver() {
   state='over'; stopBGM();
-  if(score>hi){hi=score;localStorage.setItem('toad_v2_hi',hi);}
+  if(countdownTimer) { clearInterval(countdownTimer); countdownTimer=null; }
+  countMo.classList.add('hidden');
+  pauseMo.classList.add('hidden');
+  frenzyEndWarnEl.classList.add('hidden');
+  try {
+    if(score>hi){ hi=score; localStorage.setItem('toad_v2_hi',hi); }
+  } catch(e) { if(score>hi) hi=score; }
 
-  let rank='🪨 흙두꺼비';
-  if(score>=15000) rank='👑 신화급 묵신';
-  else if(score>=9000) rank='⚡ 지리산 패왕';
-  else if(score>=4500) rank='🏅 틸트 마스터';
-  else if(score>=2000) rank='🐸 묵 매니아';
-
-  document.getElementById('oRank').textContent=`[${rank}]`;
+  document.getElementById('oRank').textContent=`[${getRank(score)}]`;
   document.getElementById('fsc').textContent=`${score}`;
   document.getElementById('hst').textContent=`최고 기록: ${hi}`;
   document.getElementById('overMo').classList.remove('hidden');
@@ -832,7 +1166,8 @@ function drawLaser() {
     ctx.setLineDash([8,6]); ctx.strokeRect(laser.x,0,laser.w,H);
     ctx.setLineDash([]);
     ctx.fillStyle='#f87171'; ctx.font='900 12px monospace'; ctx.textAlign='center';
-    ctx.fillText('⚠ WARNING',laser.x+laser.w/2,75);
+    const labelY = Math.max(95, H * 0.14);
+    ctx.fillText('⚠ WARNING',laser.x+laser.w/2, labelY);
   } else {
     ctx.fillStyle='#ffffff'; ctx.fillRect(laser.x+6,0,laser.w-12,H);
     ctx.fillStyle='rgba(239,68,68,0.85)'; ctx.fillRect(laser.x,0,laser.w,H);
@@ -844,8 +1179,10 @@ function drawLaser() {
 function drawShockwaves(dt) {
   for(let i=shockwaves.length-1;i>=0;i--){
     const sw=shockwaves[i];
-    sw.r += (sw.maxR - sw.r) * 12 * dt;
-    sw.life -= dt * 2.8;
+    if (state === 'play') {
+      sw.r += (sw.maxR - sw.r) * 12 * dt;
+      sw.life -= dt * 2.8;
+    }
     if(sw.life<=0){ shockwaves.splice(i,1); continue; }
     ctx.save();
     ctx.strokeStyle = sw.color;
@@ -861,7 +1198,6 @@ function drawToad(gY) {
   ctx.save();
   const tx=T.x, ty=T.y;
 
-  // 혓바닥
   T.tg.forEach(t=>{
     if(!t.a)return;
     ctx.strokeStyle = frenzyT>0 ? '#e77958' : '#e9bf65';
@@ -871,17 +1207,27 @@ function drawToad(gY) {
     ctx.beginPath();ctx.arc(t.x,t.y,frenzyT>0?10:7.5,0,6.28);ctx.fill();
   });
 
-  // 몸체
+  // v5: 체인 활성 시 두꺼비 주변에 은은한 청색 오라
+  if (dodgeChain >= 2) {
+    ctx.save();
+    ctx.shadowColor = '#38bdf8';
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = `rgba(56,189,248,${0.4 + Math.sin(Date.now()*0.012)*0.2})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(tx+T.w/2, ty+T.h/2+2, T.w/2+6, T.h/2+2, 0, 0, 6.28);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   ctx.shadowColor = frenzyT>0 ? '#e77958' : '#284f3e'; ctx.shadowBlur=8;
   ctx.fillStyle = frenzyT>0 ? '#ad4938' : debuffSlow>0 ? '#65447c' : '#477f55';
   ctx.beginPath();ctx.ellipse(tx+T.w/2,ty+T.h/2+2,T.w/2,T.h/2-2,0,0,6.28);ctx.fill();
 
-  // 배
   ctx.shadowBlur=0;
   ctx.fillStyle = frenzyT>0 ? '#f2c879' : '#a9c879';
   ctx.beginPath();ctx.ellipse(tx+T.w/2,ty+T.h/2+6,T.w/3.2,T.h/3.5,0,0,6.28);ctx.fill();
 
-  // 털
   ctx.fillStyle = frenzyT>0 ? '#6e281f' : '#234b35';
   [{x:10,y:12},{x:22,y:8},{x:34,y:10},{x:15,y:22},{x:30,y:20},{x:42,y:23}].forEach((hr,idx)=>{
     ctx.beginPath();ctx.arc(tx+hr.x,ty+hr.y,2.5,0,6.28);ctx.fill();
@@ -890,7 +1236,6 @@ function drawToad(gY) {
     ctx.beginPath();ctx.moveTo(tx+hr.x,ty+hr.y);ctx.lineTo(tx+hr.x+sw,ty+hr.y-7);ctx.stroke();
   });
 
-  // 눈
   const lk=T.fd*2;
   [{x:14,y:6},{x:36,y:6}].forEach(e=>{
     ctx.fillStyle='#e8ddb2';ctx.beginPath();ctx.arc(tx+e.x,ty+e.y,6.5,0,6.28);ctx.fill();
@@ -954,7 +1299,10 @@ function rr(c,x,y,w,h,r){
 
 function drawParts(dt) {
   for(let i=parts.length-1;i>=0;i--){
-    const p=parts[i]; p.x+=p.vx; p.y+=p.vy; p.lf-=dt*2.5;
+    const p=parts[i];
+    if (state === 'play') {
+      p.x+=p.vx; p.y+=p.vy; p.lf-=dt*2.5;
+    }
     if(p.lf<=0){parts.splice(i,1);continue;}
     ctx.fillStyle=p.c; ctx.globalAlpha=Math.max(0,p.lf);
     ctx.beginPath();ctx.arc(p.x,p.y,p.sz,0,6.28);ctx.fill();
@@ -965,7 +1313,10 @@ function drawParts(dt) {
 function drawFloats(dt) {
   ctx.textAlign='center';
   for(let i=floats.length-1;i>=0;i--){
-    const f=floats[i]; f.y+=f.vy; f.life-=dt;
+    const f=floats[i];
+    if (state === 'play') {
+      f.y+=f.vy; f.life-=dt;
+    }
     if(f.life<=0){floats.splice(i,1);continue;}
     ctx.globalAlpha=Math.min(1,f.life*2);
     ctx.font='900 16px sans-serif';
@@ -976,7 +1327,7 @@ function drawFloats(dt) {
 }
 
 /* ================================================================
-   7. 버튼 이벤트 & 틸트 권한 요청
+   7. 버튼 이벤트
    ================================================================ */
 document.getElementById('startBtn').addEventListener('click', () => {
   requestTiltPermission();
@@ -987,16 +1338,19 @@ document.getElementById('restartBtn').addEventListener('click', resetGame);
 
 document.getElementById('copyLinkBtn').addEventListener('click', () => {
   const url = 'https://lee3q.github.io/toad-muk/';
-  if(navigator.clipboard) {
+  if(navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(()=>{
       toast.style.opacity='1';
       setTimeout(()=>toast.style.opacity='0',2000);
-    }).catch(()=>alert(url));
+    }).catch(()=>{
+      try { prompt('링크를 복사하세요:', url); } catch(e) { alert(url); }
+    });
   } else {
-    alert(url);
+    try { prompt('링크를 복사하세요:', url); } catch(e) { alert(url); }
   }
 });
 
+updateHUD();
 requestAnimationFrame(loop);
 </script>
 </body>
