@@ -10,20 +10,16 @@
 <!--
 AUTO-DEV STATE
 PROJECT: 털두꺼비의 묵 사냥
-VERSION: 5
+VERSION: 7
 CORE GOAL: 모바일과 PC에서 짧고 직관적으로 즐길 수 있으며, 반복 플레이할수록 조작감·공정성·전략성이 좋아지는 캐주얼 액션 게임
-LAST_CHANGE: 저스트닷지 보상 강화 - 성공 시 콤보 배수가 감소하지 않도록 comboTimer를 리프레시하고, 3연속 성공 시 "PERFECT CHAIN!" 보너스(+500점, 광란 게이지 +15) 부여. dodgeChain/dodgeChainTimer 상태 변수 추가, HUD의 콤보 배지에 연속 회피 카운트 표시. 실패(피격/시간초과)로 체인 초기화.
-LAST_REASON: 저스트닷지는 현재 시간 슬로우+광란 게이지+180점만 주는데, 콤보는 여전히 시간이 지나면 자연 감소함. 즉 회피에 집중하면 콤보 유지가 어려워 "회피 vs 사냥" 이분법이 강제됨. 회피가 곧 사냥 흐름의 일부가 되도록 콤보 유지·연속 보너스를 부여하면 리스크·리턴 구조가 훨씬 매력적으로 변함. NEXT_CANDIDATES 2번 채택.
+LAST_CHANGE: 첫 화면 안내 가독성 개선, 가시돌 실제 충돌 판정과 저스트 회피 판정 분리.
+LAST_REASON: 실제 브라우저에서 인트로 안내가 flex 줄바꿈으로 찢어졌고, 가시돌이 충돌 거리에서도 먼저 저스트 회피로 처리되어 핵심 위험-보상 루프가 무너질 수 있었음.
 KNOWN_ISSUES:
 - iOS 13+에서 DeviceOrientation 권한 요청이 startBtn의 사용자 제스처 컨텍스트에서만 동작(재시작 버튼에서는 재요청 없음, 첫 허용 이후로는 문제 없음)
 - 광란 종료 시 startBGM 재호출로 짧은 사운드 겹침 가능성 (경미)
-- 첫 플레이 시 조작법이 인트로 모달을 닫으면 즉시 사라져, 첫 아이템 낙하 전까지 무엇을 해야 하는지 잊는 사용자 있을 수 있음
-NEXT_CANDIDATES:
-1. 첫 플레이 튜토리얼 힌트 오버레이 강화 (첫 아이템까지 화살표/텍스트 안내)
-2. 재시작 시 DeviceOrientation 권한 재요청 로직 (거부된 경우 안내)
-3. 낙뢰 워닝에 방향/폭 힌트를 시각적으로 더 명확히 (경고 시간 조정)
-4. 광란 종료 시 BGM 스무스 페이드 (재시작 겹침 제거)
-5. 게임오버 화면에 이번 판 통계(최대 콤보/저스트닷지 횟수) 표시
+- 기울기 권한을 거부하면 드래그 조작으로 계속 플레이해야 함 (게임 안에서 안내)
+- 실제 스마트폰의 햅틱·기울기 체감은 브라우저별로 다를 수 있음
+- 첫 화면은 핵심 조작과 위험을 짧게 안내하며, 세부 기능은 플레이 중 피드백으로 학습하게 함
 REGRESSION_CHECK:
 - 시작: OK (startBtn → resetGame)
 - 모바일 입력: OK (deviceorientation, touchmove 백업)
@@ -32,8 +28,8 @@ REGRESSION_CHECK:
 - 장애물: OK (가시돌 광란 무시, 낙뢰 워닝 후 발사)
 - 광란: OK (게이지 100% → 7초 3갈래, 종료 1.5초 전 경고)
 - 아슬아슬 회피: OK (52px 이내 dodgeCooldown 2s, NEW: 콤보 유지 + 체인 보너스)
-- 게임오버: OK (lives≤0 → overMo, 상수 테이블 랭크)
-- 재시작: OK (dodgeChain/dodgeChainTimer 포함 모든 상태 초기화)
+- 게임오버: OK (lives≤0 → overMo, 랭크·판 통계)
+- 재시작: OK (모든 타이머·입력·통계 상태 초기화)
 - 최고 기록: OK (localStorage toad_v2_hi, 손상 대비 parseInt 기본값)
 - 공유: OK (clipboard 실패 시 prompt/alert 폴백)
 - 일시정지/복귀: OK (visibilitychange/blur 자동 일시정지, 3초 카운트다운 재개)
@@ -44,6 +40,8 @@ CHANGE_LOG:
 - v3: 광란 모드 종료 1.5초 전 경고(시각·청각·HUD) 추가
 - v4: HUD 반응형 튜닝(clamp/미디어쿼리) + 랭크 테이블 리팩터 + 낙뢰 워닝 라벨 위치 개선
 - v5: 저스트닷지 콤보 유지 + 3연속 PERFECT CHAIN 보너스 추가
+- v6: 상태 초기화·입력 폴백·튜토리얼 힌트·게임오버 통계·위험 라벨 개선
+- v7: 인트로 안내 줄바꿈 수정 + 가시돌 충돌/저스트 회피 판정 분리
 -->
 <style>
   * { box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
@@ -125,11 +123,32 @@ CHANGE_LOG:
   }
 
   #fbc {
+    position:relative;
     width:100%; height: clamp(6px, 1.5vw, 8px);
-    background:rgba(4,18,15,0.7); border-radius:4px; overflow:hidden;
+    background:rgba(4,18,15,0.7); border-radius:4px; overflow:visible;
     border:1px solid rgba(185,215,139,0.18);
   }
   #fb { width:0%; height:100%; background:linear-gradient(90deg,#78b8a4,#f6c85f,#e66e4c); transition:width 0.1s ease-out; }
+  #feverLabel {
+    position:absolute; left:0; top:-16px; font-size:10px; font-weight:800;
+    color:rgba(226,232,240,0.72); letter-spacing:0.4px;
+  }
+  #playHint {
+    position:absolute; left:50%; bottom:clamp(30px, 8vw, 46px); transform:translateX(-50%);
+    z-index:15; padding:7px 12px; border:1px solid rgba(246,200,95,0.45);
+    border-radius:18px; background:rgba(8,28,23,0.88); color:#f6c85f;
+    font-size:clamp(11px, 3vw, 13px); font-weight:800; white-space:nowrap;
+    box-shadow:0 5px 18px rgba(0,0,0,0.28); transition:opacity .3s, transform .3s;
+    pointer-events:none;
+  }
+  #playHint.hiddenHint { opacity:0; transform:translateX(-50%) translateY(8px); }
+  .stats {
+    display:grid; grid-template-columns:repeat(3,1fr); gap:6px; width:85%; max-width:260px;
+    margin:-4px 0 14px;
+  }
+  .stat { background:rgba(255,255,255,0.055); border-radius:9px; padding:7px 3px; }
+  .stat b { display:block; color:#f6c85f; font-size:17px; }
+  .stat span { color:#94a3b8; font-size:10px; }
 
   @media (max-width: 360px) {
     #sc::before { content:""; }
@@ -158,7 +177,8 @@ CHANGE_LOG:
     border-radius:12px; padding:12px 14px; font-size:12px; color:#e2e8f0;
     text-align:left; line-height:1.6; margin-bottom:18px; width:92%; max-height:220px; overflow-y:auto;
   }
-  .gi { margin-bottom:4px; display:flex; align-items:flex-start; gap:6px; }
+  .gi { margin-bottom:7px; line-height:1.55; }
+  .gi b { color:#d7e7a5; margin-right:4px; }
 
   .pbtn {
     width:85%; max-width:250px; padding:15px 0;
@@ -257,7 +277,7 @@ CHANGE_LOG:
       <div class="b" id="pb" title="일시정지">⏸</div>
       <div class="b" id="sb">🔊</div>
     </div>
-    <div id="fbc"><div id="fb"></div></div>
+    <div id="fbc"><span id="feverLabel">광란 게이지</span><div id="fb"></div></div>
   </div>
 
   <canvas id="c"></canvas>
@@ -265,20 +285,21 @@ CHANGE_LOG:
   <div id="frenzyEndWarn" class="hidden">⚠ 광란 곧 종료!</div>
 
   <div id="tiltGuide">
-    <span class="tilt-arrow">📱</span> 스마트폰을 좌우로 기울여 이동하세요
+    <span class="tilt-arrow">↔</span> 기울이거나 드래그해서 이동
   </div>
+  <div id="playHint">묵을 탭해서 혓바닥을 뻗으세요</div>
 
   <div class="mo" id="titleMo">
     <div style="font-size:50px;margin-bottom:8px;">🐸</div>
     <h1>털두꺼비의 묵 사냥</h1>
     <div class="sub">기울여 피하고, 눌러서 낚아채세요.</div>
     <div class="gbox">
-      <div class="gi"><b>기울이기</b>: 두꺼비를 좌우로 움직여 가시돌과 낙뢰를 피하세요.</div>
-      <div class="gi"><b>탭</b>: 떨어지는 묵이나 파리를 직접 눌러 혓바닥을 뻗습니다.</div>
-      <div class="gi"><b>광란</b>: 짧은 시간 3갈래 혓바닥을 씁니다. 한 번 쓸 때마다 충전이 필요하고, <b>가시돌은 절대 못 막습니다.</b> 종료 직전엔 경고가 뜹니다.</div>
-      <div class="gi"><b>아슬아슬 회피</b>: 가시돌을 가까스로 지나치면 시간이 느려지고 광란 게이지·콤보가 <b>유지</b>됩니다. 3연속 성공 시 <b>PERFECT CHAIN!</b> 보너스.</div>
-      <div class="gi"><b>일시정지</b>: 우측 상단 ⏸ 버튼 또는 Space/ESC 키. 화면을 벗어나면 자동으로 멈춥니다.</div>
-      <div class="gi"><b>PC</b>: 마우스 클릭, `A`/`D` 또는 `←`/`→` 이동</div>
+      <div class="gi"><b>목표</b>: 묵과 파리를 탭해 먹고, 콤보와 광란 게이지를 채우세요.</div>
+      <div class="gi"><b>이동</b>: 폰은 기울이거나 드래그, PC는 `A`/`D` 또는 `←`/`→`로 피하세요.</div>
+      <div class="gi"><b>위험</b>: 가시돌과 낙뢰를 피하세요. 가시돌은 혓바닥으로 막을 수 없습니다.</div>
+      <div class="gi"><b>용기</b>: 가시돌을 아슬아슬하게 피하면 시간·콤보 보너스가 생깁니다. 3연속은 <b>PERFECT CHAIN</b>!</div>
+      <div class="gi"><b>광란</b>: 게이지가 차면 7초 동안 3갈래 혓바닥을 쓰지만, 한 번 쏠 때마다 충전됩니다.</div>
+      <div class="gi"><b>일시정지</b>: 우측 상단 ⏸ 또는 Space/ESC. 화면을 벗어나면 자동으로 멈춥니다.</div>
     </div>
     <button class="pbtn" id="startBtn">시작하기</button>
   </div>
@@ -290,6 +311,11 @@ CHANGE_LOG:
       <div style="color:#94a3b8;font-size:12px;">최종 점수</div>
       <div id="fsc" style="font-size:34px;font-weight:900;color:#fff;margin:2px 0 8px 0;">0</div>
       <div id="hst" style="color:#38bdf8;font-size:13px;font-weight:700;">최고 기록: 0</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="ostCombo">x1</b><span>최대 콤보</span></div>
+      <div class="stat"><b id="ostDodge">0</b><span>저스트 회피</span></div>
+      <div class="stat"><b id="ostCatch">0</b><span>포획 수</span></div>
     </div>
     <button class="restart-btn" id="restartBtn">다시 도전</button>
     <button class="link-btn" id="copyLinkBtn">🔗 친구에게 게임 링크 복사</button>
@@ -317,7 +343,8 @@ const scEl=document.getElementById('sc'), cbEl=document.getElementById('cb'),
       fbEl=document.getElementById('fb'), sbEl=document.getElementById('sb'),
       pbEl=document.getElementById('pb'),
       toast=document.getElementById('toast'),
-      frenzyEndWarnEl=document.getElementById('frenzyEndWarn');
+      frenzyEndWarnEl=document.getElementById('frenzyEndWarn'),
+      playHint=document.getElementById('playHint');
 const pauseMo=document.getElementById('pauseMo'),
       countMo=document.getElementById('countMo'),
       countNum=document.getElementById('countNum');
@@ -466,6 +493,7 @@ sbEl.addEventListener('click',()=>{
    ================================================================ */
 let state='title';
 let score=0, lives=3, combo=1, comboTimer=0, gameTime=0;
+let maxCombo=1, dodgeCount=0, catchCount=0;
 let hi=0;
 try { hi=parseInt(localStorage.getItem('toad_v2_hi')||'0',10)||0; } catch(e) { hi=0; }
 let shake=0, screenFlash=0, slowMo=0, debuffSlow=0;
@@ -518,6 +546,7 @@ let items=[], parts=[], floats=[], shockwaves=[], spawnClk=0;
    ================================================================ */
 let tiltGamma = 0;
 let tiltActive = false;
+let manualControl=0;
 
 function onOrientation(e) {
   if (e.gamma !== null && e.gamma !== undefined) {
@@ -532,9 +561,11 @@ function requestTiltPermission() {
       .then(response => {
         if (response === 'granted') {
           window.addEventListener('deviceorientation', onOrientation, true);
+        } else {
+          addFloat(W/2, H-100, '드래그로 이동할 수 있어요', '#f6c85f');
         }
       })
-      .catch(()=>{});
+      .catch(()=>{ addFloat(W/2, H-100, '드래그로 이동할 수 있어요', '#f6c85f'); });
   } else {
     window.addEventListener('deviceorientation', onOrientation, true);
   }
@@ -618,10 +649,19 @@ cvs.addEventListener('touchmove', e => {
   const t = e.touches[0];
   const rect = cvs.getBoundingClientRect();
   const tx = t.clientX - rect.left;
-  if (!tiltActive) {
-    const diff = tx - (T.x + T.w/2);
-    T.targetVx = Math.max(-1, Math.min(1, diff / 40));
-  }
+  manualControl = 1.2;
+  const diff = tx - (T.x + T.w/2);
+  T.targetVx = Math.max(-1, Math.min(1, diff / 40));
+}, { passive: true });
+cvs.addEventListener('touchend', e => {
+  if (e.touches.length > 0) return;
+  manualControl = 0;
+  T.targetVx = 0;
+}, { passive: true });
+cvs.addEventListener('touchcancel', e => {
+  if (e.touches.length > 0) return;
+  manualControl = 0;
+  T.targetVx = 0;
 }, { passive: true });
 
 /* ================================================================
@@ -696,11 +736,14 @@ function addShockwave(x,y,color,maxR=55) { shockwaves.push({x,y,r:6,maxR,color,l
    5. 게임 루프
    ================================================================ */
 function resetGame() {
+  keyInp.l = false; keyInp.r = false;
   score=0; lives=3; combo=1; comboTimer=0; gameTime=0;
+  maxCombo=1; dodgeCount=0; catchCount=0;
   feverM=0; frenzyT=0; frenzyShots=0; frenzyShotClock=0;
   frenzyWarnBeepClock=0;
   slowMo=0; debuffSlow=0; dodgeCooldown=0;
   dodgeChain=0; dodgeChainTimer=0;
+  spawnClk=0; laserClock=0; tiltGamma=0; tiltActive=false; manualControl=0;
   laser=null; laserClock=0; items=[]; parts=[]; floats=[]; shockwaves=[];
   T.x=W/2-T.w/2; T.y=H-120; T.vx=0; T.targetVx=0;
   T.tg.forEach(t=>t.a=false);
@@ -708,6 +751,7 @@ function resetGame() {
   countMo.classList.add('hidden');
   pauseMo.classList.add('hidden');
   frenzyEndWarnEl.classList.add('hidden');
+  playHint.classList.remove('hiddenHint');
   pbEl.textContent = '⏸';
   state='play';
   document.getElementById('titleMo').classList.add('hidden');
@@ -738,6 +782,7 @@ function updateHUD() {
 
   lbEl.textContent='♥'.repeat(Math.max(0,lives));
   fbEl.style.width=`${feverM}%`;
+  if (gameTime > 6 || catchCount > 0) playHint.classList.add('hiddenHint');
 
   if(frenzyT>0) {
     modeBadge.textContent = modeBadgeText();
@@ -823,6 +868,7 @@ function handleJustDodge(cx, cy) {
 
   // 체인 증가 및 콤보 유지 (comboTimer 리프레시)
   dodgeChain++;
+  dodgeCount++;
   dodgeChainTimer = DODGE_CHAIN_WINDOW;
   comboTimer = Math.max(comboTimer, 2.6); // 콤보가 자연 감소하지 않도록 유지
 
@@ -845,6 +891,7 @@ function handleJustDodge(cx, cy) {
 
 function update(dt,gY) {
   gameTime += dt;
+  manualControl=Math.max(0, manualControl-dt);
   const isWarmup = gameTime <= 5.0;
   const tDiff = Math.max(0, gameTime - 5.0);
 
@@ -904,7 +951,7 @@ function update(dt,gY) {
   }
 
   let normalizedTilt = 0;
-  if (tiltActive) {
+  if (tiltActive && manualControl <= 0) {
     if (Math.abs(tiltGamma) > 2.0) {
       normalizedTilt = Math.max(-1, Math.min(1, tiltGamma / 20.0));
     }
@@ -1022,12 +1069,21 @@ function update(dt,gY) {
       }
     }
 
-    if(it.type==='spike' && !it.dodged && dodgeCooldown<=0 && Math.hypot(it.x-cx, it.y-cy) < 52) {
-      it.dodged = true;
-      handleJustDodge(cx, cy);
-      updateHUD();
+    if (it.type === 'spike') {
+      const spikeDistance = Math.hypot(it.x-cx, it.y-cy);
+      const collisionDistance = it.r + 18;
+      if (spikeDistance < collisionDistance) {
+        items.splice(i,1);
+        takeDamage();
+        continue;
+      }
+      if (!it.dodged && dodgeCooldown<=0 && spikeDistance < 52) {
+        it.dodged = true;
+        handleJustDodge(cx, cy);
+        updateHUD();
+      }
+      if (it.dodged) continue;
     }
-    if (it.type === 'spike' && it.dodged) continue;
 
     if (it.type !== 'spike') {
       let caught=false;
@@ -1048,18 +1104,19 @@ function update(dt,gY) {
 
 function handleCatch(it,i,method) {
   const bonus = 1.3;
+  catchCount++;
   addShockwave(it.x,it.y,'#facc15',50);
   sfx('crunch');
 
   if(it.type==='muk') {
     const pts=Math.round(120*combo*bonus);
-    score+=pts; combo=Math.min(25,combo+1); comboTimer=2.6;
+    score+=pts; combo=Math.min(25,combo+1); maxCombo=Math.max(maxCombo,combo); comboTimer=2.6;
     addFever(9); addParts(it.x,it.y,'#f59e0b',12);
     addFloat(it.x,it.y-10,`+${pts}`,'#facc15');
     screenFlash=0.15;
   } else if(it.type==='gold') {
     const pts=Math.round(400*combo*bonus);
-    score+=pts; combo+=3; comboTimer=3.2;
+    score+=pts; combo=Math.min(25,combo+3); maxCombo=Math.max(maxCombo,combo); comboTimer=3.2;
     addFever(26); addParts(it.x,it.y,'#facc15',20,1.6);
     addFloat(it.x,it.y-10,`+${pts} ★`,'#fde047');
     screenFlash=0.35; shake=0.5;
@@ -1139,6 +1196,7 @@ function takeDamage() {
 
 function triggerGameOver() {
   state='over'; stopBGM();
+  keyInp.l = false; keyInp.r = false;
   if(countdownTimer) { clearInterval(countdownTimer); countdownTimer=null; }
   countMo.classList.add('hidden');
   pauseMo.classList.add('hidden');
@@ -1150,6 +1208,9 @@ function triggerGameOver() {
   document.getElementById('oRank').textContent=`[${getRank(score)}]`;
   document.getElementById('fsc').textContent=`${score}`;
   document.getElementById('hst').textContent=`최고 기록: ${hi}`;
+  document.getElementById('ostCombo').textContent=`x${maxCombo}`;
+  document.getElementById('ostDodge').textContent=`${dodgeCount}`;
+  document.getElementById('ostCatch').textContent=`${catchCount}`;
   document.getElementById('overMo').classList.remove('hidden');
 }
 
@@ -1167,7 +1228,7 @@ function drawLaser() {
     ctx.setLineDash([]);
     ctx.fillStyle='#f87171'; ctx.font='900 12px monospace'; ctx.textAlign='center';
     const labelY = Math.max(95, H * 0.14);
-    ctx.fillText('⚠ WARNING',laser.x+laser.w/2, labelY);
+    ctx.fillText('⚠ 낙뢰 예고',laser.x+laser.w/2, labelY);
   } else {
     ctx.fillStyle='#ffffff'; ctx.fillRect(laser.x+6,0,laser.w-12,H);
     ctx.fillStyle='rgba(239,68,68,0.85)'; ctx.fillRect(laser.x,0,laser.w,H);
